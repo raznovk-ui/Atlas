@@ -1,15 +1,19 @@
 import { create } from "zustand";
 import type { FeatureCollection } from "geojson";
-import type { Observation } from "../domain/types.js";
+import type { Observation, RupturePoint } from "../domain/types.js";
 import {
   deleteObservations,
   deletePhotos,
+  deleteRuptures,
   loadObservations,
   loadPhotos,
+  loadRuptures,
   savePhoto,
   saveObservations,
+  saveRuptures,
   type StoredPhoto,
 } from "./persistence/db.js";
+import { DEFAULT_CONFIG } from "../domain/config.js";
 import { readPhotoMetadata, type PhotoMetadata } from "./photos/exif.js";
 import { makeThumbnail } from "./photos/image.js";
 import { DEFAULT_BASEMAP } from "./map/basemaps.js";
@@ -42,7 +46,7 @@ interface AppState {
   removeObservation: (id: string) => Promise<void>;
 
   /** Last destructive action, so it can be undone. Deletes are the only one. */
-  undo: { label: string; observations: Observation[] } | null;
+  undo: { label: string; observations: Observation[]; ruptures?: RupturePoint[] } | null;
   undoLast: () => Promise<void>;
 
   selectedObservationId: string | null;
@@ -52,6 +56,18 @@ interface AppState {
   addPointMode: boolean;
   toggleAddPointMode: () => void;
   addPointAt: (lng: number, lat: number) => Promise<void>;
+
+  ruptures: RupturePoint[];
+  /** When on, a click on the map captures a new rupture at that spot. */
+  addRuptureMode: boolean;
+  toggleAddRuptureMode: () => void;
+  addRuptureAt: (lng: number, lat: number) => Promise<void>;
+  updateRupture: (rupture: RupturePoint) => Promise<void>;
+  removeRupture: (id: string) => Promise<void>;
+  loadStoredRuptures: () => Promise<void>;
+  addRuptures: (ruptures: RupturePoint[]) => Promise<void>;
+  selectedRuptureId: string | null;
+  selectRupture: (id: string | null) => void;
 
   photos: StoredPhoto[];
   /** Photos whose EXIF carried no usable GPS, waiting to be placed by hand. */
@@ -83,7 +99,77 @@ export const useAppStore = create<AppState>((set, get) => ({
   observations: [],
   undo: null,
   selectedObservationId: null,
-  selectObservation: (id) => set({ selectedObservationId: id }),
+  selectObservation: (id) => set({ selectedObservationId: id, selectedRuptureId: null }),
+
+  ruptures: [],
+  addRuptureMode: false,
+  selectedRuptureId: null,
+  selectRupture: (id) => set({ selectedRuptureId: id, selectedObservationId: null }),
+
+  loadStoredRuptures: async () => {
+    set({ ruptures: await loadRuptures() });
+  },
+
+  addRuptures: async (incoming) => {
+    if (incoming.length === 0) return;
+    await saveRuptures(incoming);
+    set((s) => ({ ruptures: [...s.ruptures, ...incoming] }));
+  },
+
+  toggleAddRuptureMode: () =>
+    set((s) => {
+      const addRuptureMode = !s.addRuptureMode;
+      return {
+        addRuptureMode,
+        addPointMode: false,
+        placingPhotoId: null,
+        status: addRuptureMode
+          ? "Clique sur la carte a l'endroit de la rupture."
+          : "Signalement de rupture desactive.",
+      };
+    }),
+
+  addRuptureAt: async (lng, lat) => {
+    const rupture: RupturePoint = {
+      id: `rup_${Date.now()}_${Math.random().toString(16).slice(2, 8)}`,
+      geometry: { type: "Point", coordinates: [lng, lat] },
+      dimensions: ["physical"],
+      // Starts at the top of the scale and blocking: a rupture is reported
+      // because something stopped someone, and softening it should be a
+      // deliberate edit rather than the default.
+      severity: DEFAULT_CONFIG.scaleMax,
+      blocking: true,
+      comment: "",
+      createdAt: new Date().toISOString(),
+      observedAt: new Date().toISOString(),
+    };
+    await saveRuptures([rupture]);
+    set((s) => ({
+      ruptures: [...s.ruptures, rupture],
+      selectedRuptureId: rupture.id,
+      selectedObservationId: null,
+      addRuptureMode: false,
+      status: "Rupture signalee. Precise sa gravite et ses dimensions.",
+    }));
+  },
+
+  updateRupture: async (rupture) => {
+    await saveRuptures([rupture]);
+    set((s) => ({ ruptures: s.ruptures.map((r) => (r.id === rupture.id ? rupture : r)) }));
+    get().setStatus("Rupture mise a jour.");
+  },
+
+  removeRupture: async (id) => {
+    const removed = get().ruptures.find((r) => r.id === id);
+    if (!removed) return;
+    await deleteRuptures([id]);
+    set((s) => ({
+      ruptures: s.ruptures.filter((r) => r.id !== id),
+      selectedRuptureId: s.selectedRuptureId === id ? null : s.selectedRuptureId,
+      undo: { label: "Suppression d'une rupture", observations: [], ruptures: [removed] },
+      status: "Rupture supprimee. Annulation possible.",
+    }));
+  },
 
   photos: [],
   pendingPhotos: [],
@@ -140,6 +226,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({
       placingPhotoId: photoId,
       addPointMode: false,
+      addRuptureMode: false,
       status: photoId ? "Clique sur la carte pour placer la photo." : "Placement annule.",
     }),
 
@@ -166,6 +253,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       const addPointMode = !s.addPointMode;
       return {
         addPointMode,
+        addRuptureMode: false,
         status: addPointMode ? "Clique sur la carte pour placer un point." : "Ajout de point desactive.",
       };
     }),
@@ -232,7 +320,12 @@ export const useAppStore = create<AppState>((set, get) => ({
     const pending = get().undo;
     if (!pending) return;
     await saveObservations(pending.observations);
-    set((s) => ({ observations: [...s.observations, ...pending.observations], undo: null }));
+    await saveRuptures(pending.ruptures ?? []);
+    set((s) => ({
+      observations: [...s.observations, ...pending.observations],
+      ruptures: [...s.ruptures, ...(pending.ruptures ?? [])],
+      undo: null,
+    }));
     get().setStatus(`${pending.label} annulee.`);
   },
 

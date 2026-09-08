@@ -1,4 +1,4 @@
-import type { Observation } from "../../domain/types.js";
+import type { Observation, RupturePoint } from "../../domain/types.js";
 
 /**
  * Local-first persistence. Everything the user contributes lives in the
@@ -6,10 +6,11 @@ import type { Observation } from "../../domain/types.js";
  * later without touching them.
  */
 const DB_NAME = "mjsl-atlas";
-const VERSION = 3;
+const VERSION = 4;
 export const OBSERVATIONS = "observations";
 export const OVERPASS = "overpass";
 export const PHOTOS = "photos";
+export const RUPTURES = "ruptures";
 
 /**
  * The single opener for the app's database. Every store must be created here:
@@ -24,6 +25,7 @@ export function openDb(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains(OVERPASS)) db.createObjectStore(OVERPASS);
       if (!db.objectStoreNames.contains(OBSERVATIONS)) db.createObjectStore(OBSERVATIONS, { keyPath: "id" });
       if (!db.objectStoreNames.contains(PHOTOS)) db.createObjectStore(PHOTOS, { keyPath: "id" });
+      if (!db.objectStoreNames.contains(RUPTURES)) db.createObjectStore(RUPTURES, { keyPath: "id" });
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
@@ -115,6 +117,48 @@ export async function deletePhotos(ids: string[]): Promise<void> {
   await new Promise<void>((resolve, reject) => {
     const transaction = db.transaction(PHOTOS, "readwrite");
     const store = transaction.objectStore(PHOTOS);
+    for (const id of ids) store.delete(id);
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+  });
+  db.close();
+}
+
+export async function loadRuptures(): Promise<RupturePoint[]> {
+  try {
+    const db = await openDb();
+    const all = await new Promise<RupturePoint[]>((resolve, reject) => {
+      const request = db.transaction(RUPTURES, "readonly").objectStore(RUPTURES).getAll();
+      request.onsuccess = () => resolve(request.result ?? []);
+      request.onerror = () => reject(request.error);
+    });
+    db.close();
+    return all;
+  } catch (error) {
+    console.warn("Ruptures illisibles.", error);
+    return [];
+  }
+}
+
+export async function saveRuptures(ruptures: RupturePoint[]): Promise<void> {
+  if (ruptures.length === 0) return;
+  const db = await openDb();
+  await new Promise<void>((resolve, reject) => {
+    const transaction = db.transaction(RUPTURES, "readwrite");
+    const store = transaction.objectStore(RUPTURES);
+    for (const rupture of ruptures) store.put(rupture);
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+  });
+  db.close();
+}
+
+export async function deleteRuptures(ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+  const db = await openDb();
+  await new Promise<void>((resolve, reject) => {
+    const transaction = db.transaction(RUPTURES, "readwrite");
+    const store = transaction.objectStore(RUPTURES);
     for (const id of ids) store.delete(id);
     transaction.oncomplete = () => resolve();
     transaction.onerror = () => reject(transaction.error);

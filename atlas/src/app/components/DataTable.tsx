@@ -10,11 +10,30 @@ const PAGE = 50;
  */
 export function DataTable() {
   const presets = useAppStore((s) => s.presets);
+  const observations = useAppStore((s) => s.observations);
+  const ruptures = useAppStore((s) => s.ruptures);
   const [limit, setLimit] = useState(PAGE);
 
   const rows = useMemo(
-    () =>
-      OVERPASS_PRESETS.flatMap((preset) =>
+    () => [
+      // Contributed evidence first: the OSM indices are only context.
+      ...ruptures.map((rupture) => ({
+        preset: "Rupture",
+        id: rupture.id,
+        label: rupture.comment || "Rupture sans description",
+        type: `${rupture.blocking ? "Blocage dur" : "Friction"} · gravite ${rupture.severity}`,
+        wheelchair: rupture.dimensions.join(", "),
+      })),
+      ...observations.map((observation) => ({
+        preset: "Observation",
+        id: observation.id,
+        label: observation.title,
+        type: observation.geometry.type,
+        wheelchair: observation.ratings
+          .map((r) => `${r.dimension}=${r.score ?? "?"}`)
+          .join(", "),
+      })),
+      ...OVERPASS_PRESETS.flatMap((preset) =>
         (presets[preset.id]?.geojson?.features ?? []).map((feature) => ({
           preset: preset.label,
           id: String(feature.properties?.osm_id ?? feature.id ?? ""),
@@ -23,7 +42,8 @@ export function DataTable() {
           wheelchair: String(feature.properties?.wheelchair ?? ""),
         })),
       ),
-    [presets],
+    ],
+    [presets, observations, ruptures],
   );
 
   if (rows.length === 0) {
@@ -38,11 +58,11 @@ export function DataTable() {
         </caption>
         <thead>
           <tr className="border-b border-slate-300">
-            <th scope="col" className="py-1 pr-3 font-semibold">Couche</th>
+            <th scope="col" className="py-1 pr-3 font-semibold">Type</th>
             <th scope="col" className="py-1 pr-3 font-semibold">Objet</th>
             <th scope="col" className="py-1 pr-3 font-semibold">Geometrie</th>
-            <th scope="col" className="py-1 pr-3 font-semibold">wheelchair</th>
-            <th scope="col" className="py-1 font-semibold">Identifiant OSM</th>
+            <th scope="col" className="py-1 pr-3 font-semibold">Dimensions / wheelchair</th>
+            <th scope="col" className="py-1 font-semibold">Identifiant</th>
           </tr>
         </thead>
         <tbody>

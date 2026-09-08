@@ -9,6 +9,8 @@ import { ObservationList } from "./components/ObservationList.js";
 import { ObservationEditor } from "./components/ObservationEditor.js";
 import { PhotoImport } from "./components/PhotoImport.js";
 import { PhotoGallery } from "./components/PhotoGallery.js";
+import { RuptureList } from "./components/RuptureList.js";
+import { RuptureEditor } from "./components/RuptureEditor.js";
 import { OVERPASS_PRESETS } from "./overpass/presets.js";
 import { STUDY_AREA } from "./studyArea.js";
 import { useAppStore } from "./state.js";
@@ -19,6 +21,8 @@ export function App() {
   const fetchPreset = useAppStore((s) => s.fetchPreset);
   const loadStored = useAppStore((s) => s.loadStoredObservations);
   const loadStoredPhotos = useAppStore((s) => s.loadStoredPhotos);
+  const loadStoredRuptures = useAppStore((s) => s.loadStoredRuptures);
+  const selectedRuptureId = useAppStore((s) => s.selectedRuptureId);
   const addPointMode = useAppStore((s) => s.addPointMode);
   const toggleAddPointMode = useAppStore((s) => s.toggleAddPointMode);
   const [view, setView] = useState<View>("map");
@@ -28,7 +32,8 @@ export function App() {
     for (const preset of OVERPASS_PRESETS) void fetchPreset(preset.id);
     void loadStored();
     void loadStoredPhotos();
-  }, [fetchPreset, loadStored, loadStoredPhotos]);
+    void loadStoredRuptures();
+  }, [fetchPreset, loadStored, loadStoredPhotos, loadStoredRuptures]);
 
   return (
     <div className="flex h-screen flex-col bg-white text-slate-900">
@@ -64,6 +69,7 @@ export function App() {
               <h2 id="import" className="mb-2 text-sm font-semibold">Import</h2>
               <ImportWizard />
             </section>
+            <RuptureList />
             <section aria-labelledby="photos">
               <h2 id="photos" className="mb-2 text-sm font-semibold">Photos</h2>
               <PhotoImport />
@@ -118,7 +124,7 @@ export function App() {
         </main>
 
         <aside className="w-80 shrink-0 overflow-y-auto border-l border-slate-200" aria-label="Fiche d'observation">
-          <ObservationEditor />
+          {selectedRuptureId ? <RuptureEditor /> : <ObservationEditor />}
         </aside>
       </div>
     </div>

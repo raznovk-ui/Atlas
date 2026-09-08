@@ -6,6 +6,7 @@ import { STUDY_AREA } from "../studyArea.js";
 import { OVERPASS_PRESETS } from "../overpass/presets.js";
 import { useAppStore } from "../state.js";
 import { CLASS_COLOURS, observationClass } from "../observationStyle.js";
+import { RUPTURE_COLOURS } from "../ruptureStyle.js";
 import type { FeatureCollection } from "geojson";
 
 const EMPTY = { type: "FeatureCollection" as const, features: [] };
@@ -26,6 +27,8 @@ export function MapView() {
   const observations = useAppStore((s) => s.observations);
   const addPointMode = useAppStore((s) => s.addPointMode);
   const placingPhotoId = useAppStore((s) => s.placingPhotoId);
+  const addRuptureMode = useAppStore((s) => s.addRuptureMode);
+  const ruptures = useAppStore((s) => s.ruptures);
 
   useEffect(() => {
     if (!container.current || map.current) return;
@@ -61,6 +64,10 @@ export function MapView() {
         void state.placePhotoAt(event.lngLat.lng, event.lngLat.lat);
         return;
       }
+      if (state.addRuptureMode) {
+        void state.addRuptureAt(event.lngLat.lng, event.lngLat.lat);
+        return;
+      }
       if (state.addPointMode) void state.addPointAt(event.lngLat.lng, event.lngLat.lat);
     });
     return () => {
@@ -91,15 +98,17 @@ export function MapView() {
   useEffect(() => {
     const instance = map.current;
     if (!instance) return;
-    instance.getCanvas().style.cursor = addPointMode || placingPhotoId ? "crosshair" : "";
-  }, [addPointMode, placingPhotoId]);
+    instance.getCanvas().style.cursor = addPointMode || placingPhotoId || addRuptureMode ? "crosshair" : "";
+  }, [addPointMode, placingPhotoId, addRuptureMode]);
 
   useEffect(() => {
     const instance = map.current;
     if (!instance || !styleReady) return;
     const source = instance.getSource(OBSERVATION_SOURCE) as GeoJSONSource | undefined;
     if (source) source.setData(observationsToGeojson(observations));
-  }, [observations, styleReady]);
+    const ruptureSource = instance.getSource(RUPTURE_SOURCE) as GeoJSONSource | undefined;
+    if (ruptureSource) ruptureSource.setData(rupturesToGeojson(ruptures));
+  }, [observations, ruptures, styleReady]);
 
   // Re-runs whenever the data changes or the style becomes ready again, so the
   // two can arrive in either order.
@@ -134,6 +143,27 @@ function layerIds(presetId: string) {
  * change, in either order.
  */
 export const OBSERVATION_SOURCE = "observations";
+export const RUPTURE_SOURCE = "ruptures";
+
+function rupturesToGeojson(ruptures: ReturnType<typeof useAppStore.getState>["ruptures"]): FeatureCollection {
+  return {
+    type: "FeatureCollection",
+    features: ruptures.map((rupture) => ({
+      type: "Feature",
+      id: rupture.id,
+      properties: {
+        id: rupture.id,
+        severity: rupture.severity,
+        blocking: rupture.blocking,
+        colour: rupture.blocking ? RUPTURE_COLOURS.blocking : RUPTURE_COLOURS.friction,
+        // Rendered as a numeral on the map so severity is readable without
+        // relying on colour, and distinguishable in greyscale print.
+        label: String(rupture.severity),
+      },
+      geometry: rupture.geometry,
+    })),
+  };
+}
 
 function observationsToGeojson(observations: ReturnType<typeof useAppStore.getState>["observations"]): FeatureCollection {
   return {
@@ -152,7 +182,7 @@ function observationsToGeojson(observations: ReturnType<typeof useAppStore.getSt
 }
 
 function syncPresetLayers(instance: MapLibreMap) {
-  const { presets, observations } = useAppStore.getState();
+  const { presets, observations, ruptures } = useAppStore.getState();
 
   for (const preset of OVERPASS_PRESETS) {
     const id = sourceId(preset.id);
@@ -214,6 +244,11 @@ function syncPresetLayers(instance: MapLibreMap) {
       paint: { "line-color": ["get", "colour"], "line-width": 5, "line-opacity": 0.9 },
     });
   }
+  const ruptureData = rupturesToGeojson(ruptures);
+  const existingRup = instance.getSource(RUPTURE_SOURCE) as GeoJSONSource | undefined;
+  if (existingRup) existingRup.setData(ruptureData);
+  else instance.addSource(RUPTURE_SOURCE, { type: "geojson", data: ruptureData });
+
   if (!instance.getLayer("observations-point")) {
     instance.addLayer({
       id: "observations-point",
@@ -226,6 +261,32 @@ function syncPresetLayers(instance: MapLibreMap) {
         "circle-stroke-color": "#ffffff",
         "circle-stroke-width": 2,
       },
+    });
+  }
+
+  // Ruptures sit above everything: they are what the diagnosis is looking for.
+  if (!instance.getLayer("ruptures-halo")) {
+    instance.addLayer({
+      id: "ruptures-halo",
+      type: "circle",
+      source: RUPTURE_SOURCE,
+      paint: {
+        // A blocking rupture is drawn larger and ringed in black, so it is
+        // distinguishable from friction by shape as well as by colour.
+        "circle-radius": ["case", ["get", "blocking"], 13, 10],
+        "circle-color": ["get", "colour"],
+        "circle-stroke-color": ["case", ["get", "blocking"], "#000000", "#ffffff"],
+        "circle-stroke-width": ["case", ["get", "blocking"], 3, 2],
+      },
+    });
+  }
+  if (!instance.getLayer("ruptures-label")) {
+    instance.addLayer({
+      id: "ruptures-label",
+      type: "symbol",
+      source: RUPTURE_SOURCE,
+      layout: { "text-field": ["get", "label"], "text-size": 12, "text-allow-overlap": true },
+      paint: { "text-color": "#ffffff" },
     });
   }
 }

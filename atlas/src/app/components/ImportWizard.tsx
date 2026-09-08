@@ -11,6 +11,7 @@ type Stage = "choose" | "map";
 
 export function ImportWizard() {
   const addObservations = useAppStore((s) => s.addObservations);
+  const addRuptures = useAppStore((s) => s.addRuptures);
   const setStatus = useAppStore((s) => s.setStatus);
 
   const [stage, setStage] = useState<Stage>("choose");
@@ -55,9 +56,9 @@ export function ImportWizard() {
   async function importExistingMjsl() {
     const result = importMjslProject(MJSL_LAYERS, DEFAULT_CONFIG);
     await addObservations(result.observations);
+    await addRuptures(result.ruptures);
     setStatus(
-      `${result.observations.length} observations MJSL importees ` +
-        `(${result.ruptures.length} ruptures reconnues, affichage a l'etape 5).`,
+      `${result.observations.length} observations et ${result.ruptures.length} ruptures MJSL importees.`,
     );
   }
 
