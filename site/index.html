@@ -18,7 +18,7 @@
     <section class="panel">
       <h2>Donnees</h2>
       <button id="loadMjslBtn" type="button">Recharger les couches MJSL</button>
-      <button id="loadOsmBtn" type="button">Charger les indices OSM</button>
+      <button id="loadOsmBtn" type="button">Rafraichir les indices OSM</button>
       <label class="file-label">
         Importer GeoJSON / CSV
         <input id="fileInput" type="file" accept=".geojson,.json,.csv" multiple>
@@ -76,8 +76,6 @@
   </main>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <!-- Donnees MJSL injectees pour fonctionnement sans serveur -->
-  <script src="data.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

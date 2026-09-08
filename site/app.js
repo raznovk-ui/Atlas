@@ -396,13 +396,16 @@ function addDataset(dataset, geojson) {
 function fitAllVisible() {
   const allFeatures = [];
   for (const dataset of appState.datasets.values()) {
+    // Les indices OSM couvrent toute la bbox : les inclure ferait dezoomer hors du corridor MJSL.
+    if (dataset.key === "osm_indices") continue;
     allFeatures.push(...dataset.geojson.features.filter(featureMatchesFilters));
   }
   if (!allFeatures.length) return;
 
   const layer = L.geoJSON({ type: "FeatureCollection", features: allFeatures });
   const bounds = layer.getBounds();
-  if (bounds.isValid()) map.fitBounds(bounds.pad(0.15));
+  // Sans animation : un fit anime peut etre casse par un traitement long et laisser la carte au zoom 0.
+  if (bounds.isValid()) map.fitBounds(bounds.pad(0.15), { animate: false });
 }
 
 function renderLayerFilters() {
@@ -477,7 +480,88 @@ function overpassBodyQuery(query) {
   return "data=" + encodedQuery;
 }
 
-async function loadOsmData() {
+const OSM_DATASET = {
+  key: "osm_indices",
+  label: "Indices OSM",
+  dimensions: ["D1", "D2", "D4", "D5", "D6"],
+};
+
+// La reponse Overpass pese environ 4 Mo : trop pour localStorage (plafond ~5 Mo)
+// et son ecriture synchrone bloquait le rendu de la carte. On passe par IndexedDB.
+const OSM_CACHE_DB = "mjsl";
+const OSM_CACHE_STORE = "osm";
+const OSM_CACHE_ID = "overpass_v1";
+const OSM_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 jours
+
+function openOsmDb() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(OSM_CACHE_DB, 1);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(OSM_CACHE_STORE)) db.createObjectStore(OSM_CACHE_STORE);
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+// Overpass est un service benevole qui limite et bloque les clients trop bavards.
+// On ne l'interroge donc qu'une fois par semaine, ou sur demande via le bouton.
+async function readOsmCache() {
+  try {
+    const db = await openOsmDb();
+    const cache = await new Promise((resolve, reject) => {
+      const request = db.transaction(OSM_CACHE_STORE, "readonly").objectStore(OSM_CACHE_STORE).get(OSM_CACHE_ID);
+      request.onsuccess = () => resolve(request.result || null);
+      request.onerror = () => reject(request.error);
+    });
+    db.close();
+    if (!cache || !Array.isArray(cache.geojson?.features) || !cache.timestamp) return null;
+    return cache;
+  } catch (error) {
+    console.warn("Cache OSM illisible, il sera reconstruit.", error);
+    return null;
+  }
+}
+
+async function writeOsmCache(geojson) {
+  try {
+    const db = await openOsmDb();
+    await new Promise((resolve, reject) => {
+      const transaction = db.transaction(OSM_CACHE_STORE, "readwrite");
+      transaction.objectStore(OSM_CACHE_STORE).put({ timestamp: Date.now(), geojson }, OSM_CACHE_ID);
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+    });
+    db.close();
+  } catch (error) {
+    // Stockage indisponible ou quota depasse : on continue sans cache.
+    console.warn("Cache OSM non enregistre.", error);
+  }
+}
+
+function cacheAgeLabel(timestamp) {
+  const days = Math.floor((Date.now() - timestamp) / (24 * 60 * 60 * 1000));
+  if (days <= 0) return "aujourd'hui";
+  if (days === 1) return "hier";
+  return `il y a ${days} jours`;
+}
+
+function applyOsmGeojson(geojson) {
+  addDataset(OSM_DATASET, geojson);
+  renderLayerFilters();
+  renderMap();
+}
+
+async function loadOsmData({ forceRefresh = false } = {}) {
+  const cache = await readOsmCache();
+
+  if (!forceRefresh && cache && Date.now() - cache.timestamp < OSM_CACHE_TTL_MS) {
+    applyOsmGeojson(cache.geojson);
+    setStatus(`${cache.geojson.features.length} indices OSM (cache du ${cacheAgeLabel(cache.timestamp)}).`);
+    return;
+  }
+
   setStatus("Requete OSM/Overpass en cours...");
   const [south, west] = MARSEILLE_BOUNDS[0];
   const [north, east] = MARSEILLE_BOUNDS[1];
@@ -485,17 +569,17 @@ async function loadOsmData() {
   const query = `[out:json][timeout:30];
 
 (
-  node["amenity"~"^(bench|toilets|drinking_water|restaurant|cafe|bar|fast_food)$"](43.255,5.335,43.305,5.385);
-  way["amenity"~"^(bench|toilets|drinking_water|restaurant|cafe|bar|fast_food)$"](43.255,5.335,43.305,5.385);
+  node["amenity"~"^(bench|toilets|drinking_water|restaurant|cafe|bar|fast_food)$"](${bbox});
+  way["amenity"~"^(bench|toilets|drinking_water|restaurant|cafe|bar|fast_food)$"](${bbox});
 
-  node["highway"~"^(steps|crossing|bus_stop)$"](43.255,5.335,43.305,5.385);
-  way["highway"~"^(steps|footway|path|pedestrian|crossing)$"](43.255,5.335,43.305,5.385);
+  node["highway"~"^(steps|crossing|bus_stop)$"](${bbox});
+  way["highway"~"^(steps|footway|path|pedestrian|crossing)$"](${bbox});
 
-  node["public_transport"~"^(platform|stop_position)$"](43.255,5.335,43.305,5.385);
-  way["public_transport"~"^(platform)$"](43.255,5.335,43.305,5.385);
+  node["public_transport"~"^(platform|stop_position)$"](${bbox});
+  way["public_transport"~"^(platform)$"](${bbox});
 
-  node["tourism"~"^(viewpoint|information)$"](43.255,5.335,43.305,5.385);
-  way["tourism"~"^(viewpoint|information)$"](43.255,5.335,43.305,5.385);
+  node["tourism"~"^(viewpoint|information)$"](${bbox});
+  way["tourism"~"^(viewpoint|information)$"](${bbox});
 );
 
 out body geom;`;
@@ -517,20 +601,18 @@ out body geom;`;
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const osmJson = await response.json();
     const geojson = osmToGeojson(osmJson);
-    addDataset(
-      {
-        key: "osm_indices",
-        label: "Indices OSM",
-        dimensions: ["D1", "D2", "D4", "D5", "D6"],
-      },
-      geojson,
-    );
-    renderLayerFilters();
-    renderMap();
-    setStatus(`${geojson.features.length} indices OSM charges.`);
+    await writeOsmCache(geojson);
+    applyOsmGeojson(geojson);
+    setStatus(`${geojson.features.length} indices OSM charges depuis Overpass.`);
   } catch (error) {
     console.error(error);
-    setStatus("Impossible de charger OSM. Verifie internet ou reessaie plus tard.");
+    if (cache) {
+      // Overpass indisponible ou en limitation : le cache, meme perime, vaut mieux qu'une carte vide.
+      applyOsmGeojson(cache.geojson);
+      setStatus(`Overpass indisponible. ${cache.geojson.features.length} indices OSM affiches depuis le cache (${cacheAgeLabel(cache.timestamp)}).`);
+    } else {
+      setStatus("Impossible de charger OSM. Verifie internet ou reessaie plus tard.");
+    }
   }
 }
 
@@ -741,7 +823,7 @@ function exportGeojson() {
 
 function initEvents() {
   els.loadMjslBtn.addEventListener("click", loadMjslData);
-  els.loadOsmBtn.addEventListener("click", loadOsmData);
+  els.loadOsmBtn.addEventListener("click", () => loadOsmData({ forceRefresh: true }));
   els.fileInput.addEventListener("change", handleFileImport);
   els.exportBtn.addEventListener("click", exportGeojson);
   els.categoryFilter.addEventListener("change", () => {
