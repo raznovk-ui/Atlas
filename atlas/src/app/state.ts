@@ -1,7 +1,17 @@
 import { create } from "zustand";
 import type { FeatureCollection } from "geojson";
 import type { Observation } from "../domain/types.js";
-import { deleteObservations, loadObservations, saveObservations } from "./persistence/db.js";
+import {
+  deleteObservations,
+  deletePhotos,
+  loadObservations,
+  loadPhotos,
+  savePhoto,
+  saveObservations,
+  type StoredPhoto,
+} from "./persistence/db.js";
+import { readPhotoMetadata, type PhotoMetadata } from "./photos/exif.js";
+import { makeThumbnail } from "./photos/image.js";
 import { DEFAULT_BASEMAP } from "./map/basemaps.js";
 import { OVERPASS_PRESETS } from "./overpass/presets.js";
 import { loadPreset } from "./overpass/client.js";
@@ -43,6 +53,15 @@ interface AppState {
   toggleAddPointMode: () => void;
   addPointAt: (lng: number, lat: number) => Promise<void>;
 
+  photos: StoredPhoto[];
+  /** Photos whose EXIF carried no usable GPS, waiting to be placed by hand. */
+  pendingPhotos: { photoId: string; filename: string; metadata: PhotoMetadata }[];
+  placingPhotoId: string | null;
+  loadStoredPhotos: () => Promise<void>;
+  importPhotos: (files: File[]) => Promise<void>;
+  startPlacingPhoto: (photoId: string | null) => void;
+  placePhotoAt: (lng: number, lat: number) => Promise<void>;
+
   /** Announced through an aria-live region, so progress is not colour-only. */
   status: string;
   setStatus: (message: string) => void;
@@ -65,6 +84,81 @@ export const useAppStore = create<AppState>((set, get) => ({
   undo: null,
   selectedObservationId: null,
   selectObservation: (id) => set({ selectedObservationId: id }),
+
+  photos: [],
+  pendingPhotos: [],
+  placingPhotoId: null,
+
+  loadStoredPhotos: async () => {
+    set({ photos: await loadPhotos() });
+  },
+
+  importPhotos: async (files) => {
+    if (files.length === 0) return;
+    get().setStatus(`Lecture de ${files.length} photo(s)...`);
+
+    const created: Observation[] = [];
+    const pending: AppState["pendingPhotos"] = [];
+    const stored: StoredPhoto[] = [];
+
+    for (const file of files) {
+      try {
+        const metadata = await readPhotoMetadata(file);
+        const photoId = `photo_${Date.now()}_${Math.random().toString(16).slice(2, 8)}`;
+        const photo: StoredPhoto = {
+          id: photoId,
+          filename: file.name,
+          original: file,
+          thumbnail: await makeThumbnail(file),
+          mimeType: file.type,
+          size: file.size,
+        };
+        await savePhoto(photo);
+        stored.push(photo);
+
+        if (metadata.coordinates) created.push(photoObservation(photoId, file.name, metadata, metadata.coordinates));
+        else pending.push({ photoId, filename: file.name, metadata });
+      } catch (error) {
+        console.error(`Photo ignoree : ${file.name}`, error);
+      }
+    }
+
+    if (created.length > 0) await saveObservations(created);
+    set((s) => ({
+      photos: [...s.photos, ...stored],
+      observations: [...s.observations, ...created],
+      pendingPhotos: [...s.pendingPhotos, ...pending],
+    }));
+
+    get().setStatus(
+      `${created.length} photo(s) geolocalisee(s) ajoutee(s)` +
+        (pending.length ? `, ${pending.length} a placer manuellement.` : "."),
+    );
+  },
+
+  startPlacingPhoto: (photoId) =>
+    set({
+      placingPhotoId: photoId,
+      addPointMode: false,
+      status: photoId ? "Clique sur la carte pour placer la photo." : "Placement annule.",
+    }),
+
+  placePhotoAt: async (lng, lat) => {
+    const photoId = get().placingPhotoId;
+    if (!photoId) return;
+    const entry = get().pendingPhotos.find((p) => p.photoId === photoId);
+    if (!entry) return;
+
+    const observation = photoObservation(photoId, entry.filename, entry.metadata, [lng, lat]);
+    await saveObservations([observation]);
+    set((s) => ({
+      observations: [...s.observations, observation],
+      pendingPhotos: s.pendingPhotos.filter((p) => p.photoId !== photoId),
+      placingPhotoId: null,
+      selectedObservationId: observation.id,
+      status: `« ${entry.filename} » placee. Renseigne ses dimensions.`,
+    }));
+  },
 
   addPointMode: false,
   toggleAddPointMode: () =>
@@ -123,8 +217,11 @@ export const useAppStore = create<AppState>((set, get) => ({
     const removed = get().observations.find((o) => o.id === id);
     if (!removed) return;
     await deleteObservations([id]);
+    const photoIds = (removed.media ?? []).map((m) => m.id);
+    if (photoIds.length > 0) await deletePhotos(photoIds);
     set((s) => ({
       observations: s.observations.filter((o) => o.id !== id),
+      photos: s.photos.filter((p) => !photoIds.includes(p.id)),
       selectedObservationId: s.selectedObservationId === id ? null : s.selectedObservationId,
       undo: { label: `Suppression de « ${removed.title} »`, observations: [removed] },
     }));
@@ -173,3 +270,32 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 }));
+
+function photoObservation(
+  photoId: string,
+  filename: string,
+  metadata: PhotoMetadata,
+  coordinates: [number, number],
+): Observation {
+  return {
+    id: `obs_${photoId}`,
+    geometry: { type: "Point", coordinates },
+    source: "photo",
+    title: filename,
+    ratings: [],
+    media: [
+      {
+        id: photoId,
+        filename,
+        coordinates: metadata.coordinates ?? undefined,
+        bearing: metadata.bearing ?? undefined,
+        takenAt: metadata.takenAt ?? undefined,
+      },
+    ],
+    tags: [],
+    createdAt: new Date().toISOString(),
+    // The EXIF capture time is a genuine observation date. Absent it, the field
+    // stays empty rather than borrowing the upload time.
+    observedAt: metadata.takenAt ?? undefined,
+  };
+}

@@ -7,6 +7,8 @@ import { StatusBar } from "./components/StatusBar.js";
 import { ImportWizard } from "./components/ImportWizard.js";
 import { ObservationList } from "./components/ObservationList.js";
 import { ObservationEditor } from "./components/ObservationEditor.js";
+import { PhotoImport } from "./components/PhotoImport.js";
+import { PhotoGallery } from "./components/PhotoGallery.js";
 import { OVERPASS_PRESETS } from "./overpass/presets.js";
 import { STUDY_AREA } from "./studyArea.js";
 import { useAppStore } from "./state.js";
@@ -16,6 +18,7 @@ type View = "map" | "table";
 export function App() {
   const fetchPreset = useAppStore((s) => s.fetchPreset);
   const loadStored = useAppStore((s) => s.loadStoredObservations);
+  const loadStoredPhotos = useAppStore((s) => s.loadStoredPhotos);
   const addPointMode = useAppStore((s) => s.addPointMode);
   const toggleAddPointMode = useAppStore((s) => s.toggleAddPointMode);
   const [view, setView] = useState<View>("map");
@@ -24,7 +27,8 @@ export function App() {
     // Fired without awaiting: a slow Overpass query must never hold the UI.
     for (const preset of OVERPASS_PRESETS) void fetchPreset(preset.id);
     void loadStored();
-  }, [fetchPreset, loadStored]);
+    void loadStoredPhotos();
+  }, [fetchPreset, loadStored, loadStoredPhotos]);
 
   return (
     <div className="flex h-screen flex-col bg-white text-slate-900">
@@ -59,6 +63,13 @@ export function App() {
             <section aria-labelledby="import">
               <h2 id="import" className="mb-2 text-sm font-semibold">Import</h2>
               <ImportWizard />
+            </section>
+            <section aria-labelledby="photos">
+              <h2 id="photos" className="mb-2 text-sm font-semibold">Photos</h2>
+              <PhotoImport />
+              <div className="mt-2">
+                <PhotoGallery />
+              </div>
             </section>
             <ObservationList />
             <BasemapPicker />

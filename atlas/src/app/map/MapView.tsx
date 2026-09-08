@@ -25,7 +25,7 @@ export function MapView() {
   const [styleReady, setStyleReady] = useState(false);
   const observations = useAppStore((s) => s.observations);
   const addPointMode = useAppStore((s) => s.addPointMode);
-  const addPointAt = useAppStore((s) => s.addPointAt);
+  const placingPhotoId = useAppStore((s) => s.placingPhotoId);
 
   useEffect(() => {
     if (!container.current || map.current) return;
@@ -54,10 +54,14 @@ export function MapView() {
 
     instance.on("load", () => setStyleReady(true));
     instance.on("click", (event) => {
-      // Read the flag at click time: registering this once avoids rebinding on
+      // Read the flags at click time: registering this once avoids rebinding on
       // every state change, and the store is the source of truth anyway.
-      if (!useAppStore.getState().addPointMode) return;
-      void useAppStore.getState().addPointAt(event.lngLat.lng, event.lngLat.lat);
+      const state = useAppStore.getState();
+      if (state.placingPhotoId) {
+        void state.placePhotoAt(event.lngLat.lng, event.lngLat.lat);
+        return;
+      }
+      if (state.addPointMode) void state.addPointAt(event.lngLat.lng, event.lngLat.lat);
     });
     return () => {
       instance.remove();
@@ -87,8 +91,8 @@ export function MapView() {
   useEffect(() => {
     const instance = map.current;
     if (!instance) return;
-    instance.getCanvas().style.cursor = addPointMode ? "crosshair" : "";
-  }, [addPointMode]);
+    instance.getCanvas().style.cursor = addPointMode || placingPhotoId ? "crosshair" : "";
+  }, [addPointMode, placingPhotoId]);
 
   useEffect(() => {
     const instance = map.current;
