@@ -4,6 +4,9 @@ import { BasemapPicker } from "./components/BasemapPicker.js";
 import { LayerPanel } from "./components/LayerPanel.js";
 import { DataTable } from "./components/DataTable.js";
 import { StatusBar } from "./components/StatusBar.js";
+import { ImportWizard } from "./components/ImportWizard.js";
+import { ObservationList } from "./components/ObservationList.js";
+import { ObservationEditor } from "./components/ObservationEditor.js";
 import { OVERPASS_PRESETS } from "./overpass/presets.js";
 import { STUDY_AREA } from "./studyArea.js";
 import { useAppStore } from "./state.js";
@@ -12,12 +15,16 @@ type View = "map" | "table";
 
 export function App() {
   const fetchPreset = useAppStore((s) => s.fetchPreset);
+  const loadStored = useAppStore((s) => s.loadStoredObservations);
+  const addPointMode = useAppStore((s) => s.addPointMode);
+  const toggleAddPointMode = useAppStore((s) => s.toggleAddPointMode);
   const [view, setView] = useState<View>("map");
 
   useEffect(() => {
     // Fired without awaiting: a slow Overpass query must never hold the UI.
     for (const preset of OVERPASS_PRESETS) void fetchPreset(preset.id);
-  }, [fetchPreset]);
+    void loadStored();
+  }, [fetchPreset, loadStored]);
 
   return (
     <div className="flex h-screen flex-col bg-white text-slate-900">
@@ -36,6 +43,24 @@ export function App() {
       <div className="flex min-h-0 flex-1">
         <aside className="w-80 shrink-0 overflow-y-auto border-r border-slate-200 p-4" aria-label="Reglages des couches">
           <div className="space-y-6">
+            <section aria-labelledby="saisie">
+              <h2 id="saisie" className="mb-2 text-sm font-semibold">Saisie</h2>
+              <button
+                type="button"
+                onClick={toggleAddPointMode}
+                aria-pressed={addPointMode}
+                className={`w-full rounded px-3 py-2 text-sm font-medium ${
+                  addPointMode ? "bg-slate-900 text-white" : "border border-slate-300 hover:bg-slate-100"
+                }`}
+              >
+                {addPointMode ? "Clique sur la carte…" : "Ajouter un point"}
+              </button>
+            </section>
+            <section aria-labelledby="import">
+              <h2 id="import" className="mb-2 text-sm font-semibold">Import</h2>
+              <ImportWizard />
+            </section>
+            <ObservationList />
             <BasemapPicker />
             <LayerPanel />
             <section aria-labelledby="limites">
@@ -80,6 +105,10 @@ export function App() {
 
           <StatusBar />
         </main>
+
+        <aside className="w-80 shrink-0 overflow-y-auto border-l border-slate-200" aria-label="Fiche d'observation">
+          <ObservationEditor />
+        </aside>
       </div>
     </div>
   );

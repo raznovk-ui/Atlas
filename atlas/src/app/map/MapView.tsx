@@ -5,6 +5,8 @@ import { BASEMAPS } from "./basemaps.js";
 import { STUDY_AREA } from "../studyArea.js";
 import { OVERPASS_PRESETS } from "../overpass/presets.js";
 import { useAppStore } from "../state.js";
+import { CLASS_COLOURS, observationClass } from "../observationStyle.js";
+import type { FeatureCollection } from "geojson";
 
 const EMPTY = { type: "FeatureCollection" as const, features: [] };
 
@@ -21,6 +23,9 @@ export function MapView() {
   // "styledata" event that fires mid-parse leaves them registered but never
   // wired up, so nothing ever renders.
   const [styleReady, setStyleReady] = useState(false);
+  const observations = useAppStore((s) => s.observations);
+  const addPointMode = useAppStore((s) => s.addPointMode);
+  const addPointAt = useAppStore((s) => s.addPointAt);
 
   useEffect(() => {
     if (!container.current || map.current) return;
@@ -48,6 +53,12 @@ export function MapView() {
     if (import.meta.env.DEV) (window as unknown as Record<string, unknown>).__map = instance;
 
     instance.on("load", () => setStyleReady(true));
+    instance.on("click", (event) => {
+      // Read the flag at click time: registering this once avoids rebinding on
+      // every state change, and the store is the source of truth anyway.
+      if (!useAppStore.getState().addPointMode) return;
+      void useAppStore.getState().addPointAt(event.lngLat.lng, event.lngLat.lat);
+    });
     return () => {
       instance.remove();
       map.current = null;
@@ -72,6 +83,19 @@ export function MapView() {
     instance.setStyle(style);
     instance.once("idle", () => setStyleReady(true));
   }, [basemap]);
+
+  useEffect(() => {
+    const instance = map.current;
+    if (!instance) return;
+    instance.getCanvas().style.cursor = addPointMode ? "crosshair" : "";
+  }, [addPointMode]);
+
+  useEffect(() => {
+    const instance = map.current;
+    if (!instance || !styleReady) return;
+    const source = instance.getSource(OBSERVATION_SOURCE) as GeoJSONSource | undefined;
+    if (source) source.setData(observationsToGeojson(observations));
+  }, [observations, styleReady]);
 
   // Re-runs whenever the data changes or the style becomes ready again, so the
   // two can arrive in either order.
@@ -105,8 +129,26 @@ function layerIds(presetId: string) {
  * the current data and visibility. Safe to call on style load and on every data
  * change, in either order.
  */
+export const OBSERVATION_SOURCE = "observations";
+
+function observationsToGeojson(observations: ReturnType<typeof useAppStore.getState>["observations"]): FeatureCollection {
+  return {
+    type: "FeatureCollection",
+    features: observations.map((observation) => ({
+      type: "Feature",
+      id: observation.id,
+      properties: {
+        id: observation.id,
+        title: observation.title,
+        colour: CLASS_COLOURS[observationClass(observation)],
+      },
+      geometry: observation.geometry,
+    })),
+  };
+}
+
 function syncPresetLayers(instance: MapLibreMap) {
-  const { presets } = useAppStore.getState();
+  const { presets, observations } = useAppStore.getState();
 
   for (const preset of OVERPASS_PRESETS) {
     const id = sourceId(preset.id);
@@ -150,5 +192,36 @@ function syncPresetLayers(instance: MapLibreMap) {
     for (const layerId of layerIds(preset.id)) {
       if (instance.getLayer(layerId)) instance.setLayoutProperty(layerId, "visibility", visibility);
     }
+  }
+
+  // User observations sit above the OSM indices: they are the evidence, the OSM
+  // layer is only context.
+  const data = observationsToGeojson(observations);
+  const existingObs = instance.getSource(OBSERVATION_SOURCE) as GeoJSONSource | undefined;
+  if (existingObs) existingObs.setData(data);
+  else instance.addSource(OBSERVATION_SOURCE, { type: "geojson", data });
+
+  if (!instance.getLayer("observations-line")) {
+    instance.addLayer({
+      id: "observations-line",
+      type: "line",
+      source: OBSERVATION_SOURCE,
+      filter: ["!=", ["geometry-type"], "Point"],
+      paint: { "line-color": ["get", "colour"], "line-width": 5, "line-opacity": 0.9 },
+    });
+  }
+  if (!instance.getLayer("observations-point")) {
+    instance.addLayer({
+      id: "observations-point",
+      type: "circle",
+      source: OBSERVATION_SOURCE,
+      filter: ["==", ["geometry-type"], "Point"],
+      paint: {
+        "circle-radius": 8,
+        "circle-color": ["get", "colour"],
+        "circle-stroke-color": "#ffffff",
+        "circle-stroke-width": 2,
+      },
+    });
   }
 }

@@ -3,27 +3,13 @@
  * query runs to several megabytes, past localStorage's ~5 MB cap, and its
  * synchronous write would block the first paint.
  */
-const DB_NAME = "mjsl-atlas";
-const STORE = "overpass";
-const VERSION = 1;
+import { openDb, OVERPASS as STORE } from "../persistence/db.js";
 
 export const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 export interface CachedResponse<T> {
   timestamp: number;
   payload: T;
-}
-
-function openDb(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, VERSION);
-    request.onupgradeneeded = () => {
-      const db = request.result;
-      if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE);
-    };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
 }
 
 export async function readCache<T>(key: string): Promise<CachedResponse<T> | null> {
