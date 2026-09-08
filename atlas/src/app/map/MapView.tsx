@@ -7,6 +7,10 @@ import { OVERPASS_PRESETS } from "../overpass/presets.js";
 import { useAppStore } from "../state.js";
 import { CLASS_COLOURS, observationClass } from "../observationStyle.js";
 import { RUPTURE_COLOURS } from "../ruptureStyle.js";
+import { cellsToGeojson, redZonesToGeojson } from "../analysis/cells.js";
+import { INSUFFICIENT_FILL, INSUFFICIENT_LINE } from "../analysis/palette.js";
+import { scoreAllCells } from "../../domain/scoring/cell.js";
+import { detectRedZones } from "../../domain/scoring/redzones.js";
 import type { FeatureCollection } from "geojson";
 
 const EMPTY = { type: "FeatureCollection" as const, features: [] };
@@ -29,6 +33,10 @@ export function MapView() {
   const placingPhotoId = useAppStore((s) => s.placingPhotoId);
   const addRuptureMode = useAppStore((s) => s.addRuptureMode);
   const ruptures = useAppStore((s) => s.ruptures);
+  const activeLayer = useAppStore((s) => s.activeLayer);
+  const globalMode = useAppStore((s) => s.globalMode);
+  const showCells = useAppStore((s) => s.showCells);
+  const cellOpacity = useAppStore((s) => s.cellOpacity);
 
   useEffect(() => {
     if (!container.current || map.current) return;
@@ -68,7 +76,15 @@ export function MapView() {
         void state.addRuptureAt(event.lngLat.lng, event.lngLat.lat);
         return;
       }
-      if (state.addPointMode) void state.addPointAt(event.lngLat.lng, event.lngLat.lat);
+      if (state.addPointMode) {
+        void state.addPointAt(event.lngLat.lng, event.lngLat.lat);
+        return;
+      }
+      // No capture armed: a click inspects the cell under the cursor.
+      const hit = instance.queryRenderedFeatures(event.point, {
+        layers: ["cells-fill", "cells-insufficient"].filter((id) => instance.getLayer(id)),
+      });
+      state.selectCell(hit.length ? String(hit[0]!.properties?.cell ?? "") : null);
     });
     return () => {
       instance.remove();
@@ -110,6 +126,33 @@ export function MapView() {
     if (ruptureSource) ruptureSource.setData(rupturesToGeojson(ruptures));
   }, [observations, ruptures, styleReady]);
 
+  // Scoring is re-run only when its inputs change; at res 10 with a 100 m decay
+  // radius each observation touches a handful of cells, so this stays cheap.
+  useEffect(() => {
+    const instance = map.current;
+    if (!instance || !styleReady) return;
+
+    const config = useAppStore.getState().scoringConfig();
+    const cells = scoreAllCells(observations, ruptures, config);
+    const zones = detectRedZones(cells, ruptures, config);
+
+    ensureAnalysisLayers(instance);
+    (instance.getSource(CELL_SOURCE) as GeoJSONSource).setData(cellsToGeojson(cells, activeLayer, config));
+    (instance.getSource(REDZONE_SOURCE) as GeoJSONSource).setData(redZonesToGeojson(zones));
+
+    useAppStore.setState({ cellScores: cells, cellCount: cells.length, redZones: zones });
+  }, [observations, ruptures, activeLayer, globalMode, styleReady]);
+
+  useEffect(() => {
+    const instance = map.current;
+    if (!instance || !styleReady) return;
+    const visibility = showCells ? "visible" : "none";
+    for (const id of ["cells-fill", "cells-insufficient", "cells-outline", "cells-outline-insufficient", "redzones-outline"]) {
+      if (instance.getLayer(id)) instance.setLayoutProperty(id, "visibility", visibility);
+    }
+    if (instance.getLayer("cells-fill")) instance.setPaintProperty("cells-fill", "fill-opacity", cellOpacity);
+  }, [showCells, cellOpacity, styleReady]);
+
   // Re-runs whenever the data changes or the style becomes ready again, so the
   // two can arrive in either order.
   useEffect(() => {
@@ -144,6 +187,75 @@ function layerIds(presetId: string) {
  */
 export const OBSERVATION_SOURCE = "observations";
 export const RUPTURE_SOURCE = "ruptures";
+
+/**
+ * Creates the analysis sources and layers if they are missing. Called from both
+ * the layer sync and the scoring effect, because React runs effects in
+ * declaration order and whichever fires first must not find the source absent:
+ * a setData on a missing source silently does nothing and never retries.
+ */
+function ensureAnalysisLayers(instance: MapLibreMap) {
+  // Added before the evidence layers so the choropleth sits beneath them.
+  if (!instance.getSource(CELL_SOURCE)) {
+    instance.addSource(CELL_SOURCE, { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+  }
+  if (!instance.getSource(REDZONE_SOURCE)) {
+    instance.addSource(REDZONE_SOURCE, { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+  }
+  if (!instance.getLayer("cells-fill")) {
+    instance.addLayer({
+      id: "cells-fill",
+      type: "fill",
+      source: CELL_SOURCE,
+      filter: ["get", "sufficient"],
+      paint: { "fill-color": ["get", "colour"], "fill-opacity": 0.65 },
+    });
+  }
+  if (!instance.getLayer("cells-insufficient")) {
+    // Too little evidence is drawn as a flat grey with a dashed edge, so it
+    // reads as "not surveyed" rather than as a low score.
+    instance.addLayer({
+      id: "cells-insufficient",
+      type: "fill",
+      source: CELL_SOURCE,
+      filter: ["!", ["get", "sufficient"]],
+      paint: { "fill-color": INSUFFICIENT_FILL, "fill-opacity": 0.35 },
+    });
+  }
+  // Two outline layers rather than one with a data-driven dash: line-dasharray
+  // is a constant property in MapLibre, so a "case" expression there is not
+  // reliably honoured and the dashed edge could silently disappear.
+  if (!instance.getLayer("cells-outline")) {
+    instance.addLayer({
+      id: "cells-outline",
+      type: "line",
+      source: CELL_SOURCE,
+      filter: ["get", "sufficient"],
+      paint: { "line-color": "#ffffff", "line-width": 0.6 },
+    });
+  }
+  if (!instance.getLayer("cells-outline-insufficient")) {
+    instance.addLayer({
+      id: "cells-outline-insufficient",
+      type: "line",
+      source: CELL_SOURCE,
+      filter: ["!", ["get", "sufficient"]],
+      paint: { "line-color": INSUFFICIENT_LINE, "line-width": 0.8, "line-dasharray": [2, 2] },
+    });
+  }
+  if (!instance.getLayer("redzones-outline")) {
+    instance.addLayer({
+      id: "redzones-outline",
+      type: "line",
+      source: REDZONE_SOURCE,
+      paint: { "line-color": "#7f1d1d", "line-width": 3 },
+    });
+  }
+
+}
+
+export const CELL_SOURCE = "cells";
+export const REDZONE_SOURCE = "redzones";
 
 function rupturesToGeojson(ruptures: ReturnType<typeof useAppStore.getState>["ruptures"]): FeatureCollection {
   return {
@@ -227,6 +339,8 @@ function syncPresetLayers(instance: MapLibreMap) {
       if (instance.getLayer(layerId)) instance.setLayoutProperty(layerId, "visibility", visibility);
     }
   }
+
+  ensureAnalysisLayers(instance);
 
   // User observations sit above the OSM indices: they are the evidence, the OSM
   // layer is only context.

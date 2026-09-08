@@ -13,7 +13,10 @@ import {
   saveRuptures,
   type StoredPhoto,
 } from "./persistence/db.js";
-import { DEFAULT_CONFIG } from "../domain/config.js";
+import { DEFAULT_CONFIG, type GlobalMode, type ScoringConfig } from "../domain/config.js";
+import type { ActiveLayer } from "./analysis/cells.js";
+import type { RedZone } from "../domain/scoring/redzones.js";
+import type { CellScore } from "../domain/scoring/cell.js";
 import { readPhotoMetadata, type PhotoMetadata } from "./photos/exif.js";
 import { makeThumbnail } from "./photos/image.js";
 import { DEFAULT_BASEMAP } from "./map/basemaps.js";
@@ -77,6 +80,24 @@ interface AppState {
   importPhotos: (files: File[]) => Promise<void>;
   startPlacingPhoto: (photoId: string | null) => void;
   placePhotoAt: (lng: number, lat: number) => Promise<void>;
+
+  /** Which surface the choropleth shows: the global score or one dimension. */
+  activeLayer: ActiveLayer;
+  setActiveLayer: (layer: ActiveLayer) => void;
+  globalMode: GlobalMode;
+  setGlobalMode: (mode: GlobalMode) => void;
+  showCells: boolean;
+  toggleCells: () => void;
+  cellOpacity: number;
+  setCellOpacity: (value: number) => void;
+  selectedCell: string | null;
+  selectCell: (cell: string | null) => void;
+  /** Written by the map after each scoring pass, read by the panels. */
+  cellScores: CellScore[];
+  cellCount: number;
+  redZones: RedZone[];
+  /** The config the analysis actually runs with, mode included. */
+  scoringConfig: () => ScoringConfig;
 
   /** Announced through an aria-live region, so progress is not colour-only. */
   status: string;
@@ -329,6 +350,21 @@ export const useAppStore = create<AppState>((set, get) => ({
     get().setStatus(`${pending.label} annulee.`);
   },
 
+  activeLayer: "global",
+  setActiveLayer: (activeLayer) => set({ activeLayer }),
+  globalMode: DEFAULT_CONFIG.globalMode,
+  setGlobalMode: (globalMode) => set({ globalMode }),
+  showCells: true,
+  toggleCells: () => set((s) => ({ showCells: !s.showCells })),
+  cellOpacity: 0.65,
+  setCellOpacity: (cellOpacity) => set({ cellOpacity }),
+  selectedCell: null,
+  selectCell: (selectedCell) => set({ selectedCell }),
+  cellScores: [],
+  cellCount: 0,
+  redZones: [],
+  scoringConfig: () => ({ ...DEFAULT_CONFIG, globalMode: get().globalMode }),
+
   status: "Pret.",
   setStatus: (message) => set({ status: message }),
 
@@ -391,4 +427,10 @@ function photoObservation(
     // stays empty rather than borrowing the upload time.
     observedAt: metadata.takenAt ?? undefined,
   };
+}
+
+// Dev-only handle, matching the one on the map, so state can be inspected and
+// driven from the console.
+if (import.meta.env.DEV) {
+  (window as unknown as Record<string, unknown>).__store = useAppStore;
 }

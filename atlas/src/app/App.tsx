@@ -11,11 +11,14 @@ import { PhotoImport } from "./components/PhotoImport.js";
 import { PhotoGallery } from "./components/PhotoGallery.js";
 import { RuptureList } from "./components/RuptureList.js";
 import { RuptureEditor } from "./components/RuptureEditor.js";
+import { AnalysisPanel } from "./components/AnalysisPanel.js";
+import { RedZoneList } from "./components/RedZoneList.js";
+import { CellInspector } from "./components/CellInspector.js";
 import { OVERPASS_PRESETS } from "./overpass/presets.js";
 import { STUDY_AREA } from "./studyArea.js";
 import { useAppStore } from "./state.js";
 
-type View = "map" | "table";
+type View = "map" | "table" | "analysis";
 
 export function App() {
   const fetchPreset = useAppStore((s) => s.fetchPreset);
@@ -23,6 +26,7 @@ export function App() {
   const loadStoredPhotos = useAppStore((s) => s.loadStoredPhotos);
   const loadStoredRuptures = useAppStore((s) => s.loadStoredRuptures);
   const selectedRuptureId = useAppStore((s) => s.selectedRuptureId);
+  const selectedCell = useAppStore((s) => s.selectedCell);
   const addPointMode = useAppStore((s) => s.addPointMode);
   const toggleAddPointMode = useAppStore((s) => s.toggleAddPointMode);
   const [view, setView] = useState<View>("map");
@@ -69,6 +73,7 @@ export function App() {
               <h2 id="import" className="mb-2 text-sm font-semibold">Import</h2>
               <ImportWizard />
             </section>
+            <AnalysisPanel />
             <RuptureList />
             <section aria-labelledby="photos">
               <h2 id="photos" className="mb-2 text-sm font-semibold">Photos</h2>
@@ -95,7 +100,7 @@ export function App() {
         <main id="contenu" className="flex min-h-0 flex-1 flex-col">
           <nav aria-label="Mode d'affichage" className="border-b border-slate-200 px-4 py-2">
             <div role="tablist" className="flex gap-2">
-              {(["map", "table"] as const).map((value) => (
+              {(["map", "table", "analysis"] as const).map((value) => (
                 <button
                   key={value}
                   type="button"
@@ -106,7 +111,7 @@ export function App() {
                     view === value ? "bg-slate-900 text-white" : "border border-slate-300 hover:bg-slate-100"
                   }`}
                 >
-                  {value === "map" ? "Carte" : "Tableau"}
+                  {value === "map" ? "Carte" : value === "table" ? "Tableau" : "Analyse"}
                 </button>
               ))}
             </div>
@@ -119,12 +124,21 @@ export function App() {
           <div className={`min-h-0 flex-1 overflow-y-auto ${view === "table" ? "" : "hidden"}`}>
             <DataTable />
           </div>
+          <div className={`min-h-0 flex-1 overflow-y-auto p-4 ${view === "analysis" ? "" : "hidden"}`}>
+            <RedZoneList />
+          </div>
 
           <StatusBar />
         </main>
 
         <aside className="w-80 shrink-0 overflow-y-auto border-l border-slate-200" aria-label="Fiche d'observation">
-          {selectedRuptureId ? <RuptureEditor /> : <ObservationEditor />}
+          {selectedCell ? (
+            <CellInspector />
+          ) : selectedRuptureId ? (
+            <RuptureEditor />
+          ) : (
+            <ObservationEditor />
+          )}
         </aside>
       </div>
     </div>
