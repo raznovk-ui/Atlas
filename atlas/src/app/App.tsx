@@ -41,7 +41,7 @@ export function App() {
   }, [fetchPreset, loadStored, loadStoredPhotos, loadStoredRuptures]);
 
   return (
-    <div className="flex h-screen flex-col bg-white text-slate-900">
+    <div className="flex min-h-screen flex-col bg-white text-slate-900 lg:h-screen">
       <a className="skip-link" href="#contenu">
         Aller au contenu
       </a>
@@ -54,8 +54,13 @@ export function App() {
         <p className="text-sm text-slate-600">{STUDY_AREA.name}</p>
       </header>
 
-      <div className="flex min-h-0 flex-1">
-        <aside className="w-80 shrink-0 overflow-y-auto border-r border-slate-200 p-4" aria-label="Reglages des couches">
+      {/* Stacks below lg so the page reflows at 320px without sideways scrolling
+          (WCAG 1.4.10), which also makes it usable on a phone in the field. */}
+      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+        <aside
+          className="w-full shrink-0 overflow-y-auto border-b border-slate-200 p-4 lg:w-80 lg:border-b-0 lg:border-r"
+          aria-label="Reglages des couches"
+        >
           <div className="space-y-6">
             <section aria-labelledby="saisie">
               <h2 id="saisie" className="mb-2 text-sm font-semibold">Saisie</h2>
@@ -98,7 +103,7 @@ export function App() {
           </div>
         </aside>
 
-        <main id="contenu" className="flex min-h-0 flex-1 flex-col">
+        <main id="contenu" className="flex min-h-[70vh] flex-1 flex-col lg:min-h-0">
           <nav aria-label="Mode d'affichage" className="border-b border-slate-200 px-4 py-2">
             <div role="tablist" className="flex gap-2">
               {(["map", "table", "analysis"] as const).map((value) => (
@@ -135,7 +140,10 @@ export function App() {
           <StatusBar />
         </main>
 
-        <aside className="w-80 shrink-0 overflow-y-auto border-l border-slate-200" aria-label="Fiche d'observation">
+        <aside
+          className="w-full shrink-0 overflow-y-auto border-t border-slate-200 lg:w-80 lg:border-l lg:border-t-0"
+          aria-label="Fiche d'observation"
+        >
           {selectedCell ? (
             <CellInspector />
           ) : selectedRuptureId ? (

@@ -5,6 +5,15 @@
   --focus: #1d4ed8;
 }
 
+/* An explicit ground on html/body. Left transparent, the page borrows whatever
+   is behind it, and contrast becomes genuinely indeterminate rather than merely
+   unmeasured. */
+html,
+body {
+  background: #ffffff;
+  color: #0f172a;
+}
+
 /* WCAG 2.2 AA: focus must be visible everywhere, including on map controls. */
 :where(a, button, input, select, summary, [tabindex]):focus-visible {
   outline: 3px solid var(--focus);
@@ -59,4 +68,29 @@
   a[href]::after {
     content: "";
   }
+}
+
+/* WCAG 2.2 AA, 2.5.8 Target Size (Minimum): every control offers at least a
+   24x24 CSS px target. Applied here rather than per component so a new button
+   cannot quietly reintroduce a 16px tap target. */
+button,
+summary,
+select,
+input[type="file"],
+[role="tab"] {
+  min-height: 24px;
+}
+
+/* Chips hide their checkbox and use the label as the target, so the label is
+   what has to meet the minimum. */
+label:has(> input.sr-only) {
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* Small text buttons ("Supprimer", "Fermer") still need a real box. */
+button.text-xs,
+button.text-\[10px\] {
+  padding-block: 4px;
 }
