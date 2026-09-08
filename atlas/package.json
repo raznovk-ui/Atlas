@@ -8,16 +8,31 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
-    "demo": "vite-node src/demo.ts"
+    "demo": "vite-node src/demo.ts",
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview"
   },
   "dependencies": {
     "@turf/turf": "^7.1.0",
-    "h3-js": "^4.1.0"
+    "h3-js": "^4.1.0",
+    "maplibre-gl": "^6.8.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "zustand": "^5.0.15"
   },
   "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
     "@types/geojson": "^7946.0.14",
     "@types/node": "^26.5.0",
+    "@types/react": "^18.3.31",
+    "@types/react-dom": "^18.3.7",
+    "@vitejs/plugin-react": "^6.1.1",
+    "jsdom": "^30.0.1",
+    "tailwindcss": "^4.3.3",
     "typescript": "^5.6.3",
-    "vitest": "^2.1.8"
+    "vite": "^8.2.2",
+    "vite-node": "^6.0.0",
+    "vitest": "^5.0.0"
   }
 }
