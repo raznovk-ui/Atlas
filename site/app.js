@@ -177,25 +177,48 @@ function enrichFeature(feature, dataset) {
   return enriched;
 }
 
+// Une dimension absente n'est pas une dimension a zero : sans releve on ne deduit rien.
+// `null <= 1` vaut `true` en JavaScript, ce qui classait tout objet non renseigne
+// dans les trois categories d'exclusion a la fois.
+function lowScore(value) {
+  const number = toNumber(value);
+  if (number === null) return null;
+  return number <= 1 ? 1 : 0;
+}
+
+// 1 si au moins un critere renseigne est bas, 0 si tous sont renseignes et hauts,
+// null si aucun critere n'est renseigne.
+function anyLow(flags) {
+  const known = flags.filter((flag) => flag !== null);
+  if (!known.length) return null;
+  return known.includes(1) ? 1 : 0;
+}
+
 function inferFragmentation(properties) {
-  const d1 = toNumber(properties.d1_physique);
-  const d2 = toNumber(properties.d2_sensoriel);
-  const d3 = toNumber(properties.d3_cognitif);
-  return d1 <= 1 || d2 <= 1 || d3 <= 1 ? 1 : 0;
+  return anyLow([
+    lowScore(properties.d1_physique),
+    lowScore(properties.d2_sensoriel),
+    lowScore(properties.d3_cognitif),
+  ]);
 }
 
 function inferMetropolitan(properties) {
-  const d1 = toNumber(properties.d1_physique);
-  const d6 = toNumber(properties.d6_democratique);
-  const continuity = toNumber(properties.score_continuite);
-  const legibility = toNumber(properties.score_lisibilite);
-  return (d1 <= 1 && d6 <= 1) || continuity <= 1 || legibility <= 1 ? 1 : 0;
+  const d1 = lowScore(properties.d1_physique);
+  const d6 = lowScore(properties.d6_democratique);
+  // La regle MJSL demande D1 <= 1 ET D6 <= 1 : indecidable si l'une des deux manque.
+  const chain = d1 === null || d6 === null ? null : (d1 === 1 && d6 === 1 ? 1 : 0);
+  return anyLow([
+    chain,
+    lowScore(properties.score_continuite),
+    lowScore(properties.score_lisibilite),
+  ]);
 }
 
 function inferPrivatization(properties) {
-  const d4 = toNumber(properties.d4_economique);
-  const d5 = toNumber(properties.d5_social);
-  return d4 <= 1 || d5 <= 1 ? 1 : 0;
+  return anyLow([
+    lowScore(properties.d4_economique),
+    lowScore(properties.d5_social),
+  ]);
 }
 
 function colorForFeature(feature) {

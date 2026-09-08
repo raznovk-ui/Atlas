@@ -13,9 +13,9 @@ try {
   exit 1
 }
 
-Write-Host "MJSL webapp lancee sur ${Prefix}webapp/index.html"
+Write-Host "MJSL webapp lancee sur ${Prefix}site/index.html"
 Write-Host "Ferme cette fenetre pour arreter le serveur."
-Start-Process "${Prefix}webapp/index.html"
+Start-Process "${Prefix}site/index.html"
 
 function Decode-Url {
   param([string]$encoded)
@@ -67,7 +67,7 @@ while ($listener.IsListening) {
     $requestPath = Decode-Url $localPath
 
     if ([string]::IsNullOrWhiteSpace($requestPath)) {
-      $requestPath = "webapp/index.html"
+      $requestPath = "site/index.html"
     }
 
     $fullFile = Resolve-SafePath $requestPath $Root
