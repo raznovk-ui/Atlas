@@ -39,3 +39,24 @@
 .maplibregl-ctrl-attrib {
   font-size: 11px;
 }
+
+/* Printing the Analyse tab is the report: drop the chrome, keep the content. */
+@media print {
+  .no-print,
+  aside,
+  nav,
+  header button {
+    display: none !important;
+  }
+  body {
+    background: white;
+  }
+  table,
+  figure,
+  section {
+    break-inside: avoid;
+  }
+  a[href]::after {
+    content: "";
+  }
+}

@@ -14,6 +14,7 @@ import { RuptureEditor } from "./components/RuptureEditor.js";
 import { AnalysisPanel } from "./components/AnalysisPanel.js";
 import { RedZoneList } from "./components/RedZoneList.js";
 import { CellInspector } from "./components/CellInspector.js";
+import { Dashboard } from "./components/Dashboard.js";
 import { OVERPASS_PRESETS } from "./overpass/presets.js";
 import { STUDY_AREA } from "./studyArea.js";
 import { useAppStore } from "./state.js";
@@ -125,7 +126,10 @@ export function App() {
             <DataTable />
           </div>
           <div className={`min-h-0 flex-1 overflow-y-auto p-4 ${view === "analysis" ? "" : "hidden"}`}>
-            <RedZoneList />
+            <div className="space-y-6">
+              <Dashboard />
+              <RedZoneList />
+            </div>
           </div>
 
           <StatusBar />
