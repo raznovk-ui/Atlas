@@ -47,43 +47,49 @@ export function DataTable() {
   );
 
   if (rows.length === 0) {
-    return <p className="p-4 text-sm text-slate-600">Aucune donnee chargee pour l'instant.</p>;
+    return (
+      <p className="m-4 rounded-md border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500">
+        Aucune donnee chargee pour l&apos;instant.
+      </p>
+    );
   }
 
   return (
     <div className="p-4">
-      <table className="w-full border-collapse text-left text-sm">
-        <caption className="mb-2 text-left text-sm text-slate-700">
-          {rows.length} objets charges. Memes donnees que la carte.
-        </caption>
-        <thead>
-          <tr className="border-b border-slate-300">
-            <th scope="col" className="py-1 pr-3 font-semibold">Type</th>
-            <th scope="col" className="py-1 pr-3 font-semibold">Objet</th>
-            <th scope="col" className="py-1 pr-3 font-semibold">Geometrie</th>
-            <th scope="col" className="py-1 pr-3 font-semibold">Dimensions / wheelchair</th>
-            <th scope="col" className="py-1 font-semibold">Identifiant</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.slice(0, limit).map((row) => (
-            <tr key={row.id} className="border-b border-slate-100">
-              <td className="py-1 pr-3">{row.preset}</td>
-              <td className="py-1 pr-3">{row.label}</td>
-              <td className="py-1 pr-3">{row.type}</td>
-              <td className="py-1 pr-3">{row.wheelchair || "-"}</td>
-              <td className="py-1 font-mono text-xs">{row.id}</td>
+      <div className="card overflow-x-auto p-0">
+        <table className="w-full min-w-[640px] border-collapse text-left text-sm">
+          <caption className="p-3 text-left text-xs text-slate-500">
+            {rows.length} objets charges. Memes donnees que la carte.
+          </caption>
+          <thead>
+            <tr className="border-b" style={{ borderColor: "var(--line)", background: "var(--surface-alt)" }}>
+              <th scope="col" className="px-3 py-2 font-semibold text-slate-700">Type</th>
+              <th scope="col" className="px-3 py-2 font-semibold text-slate-700">Objet</th>
+              <th scope="col" className="px-3 py-2 font-semibold text-slate-700">Geometrie</th>
+              <th scope="col" className="px-3 py-2 font-semibold text-slate-700">Dimensions / wheelchair</th>
+              <th scope="col" className="px-3 py-2 font-semibold text-slate-700">Identifiant</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {rows.slice(0, limit).map((row, index) => (
+              <tr
+                key={row.id}
+                className="border-b"
+                style={{ borderColor: "var(--line)", background: index % 2 ? "var(--surface-alt)" : "var(--surface)" }}
+              >
+                <td className="px-3 py-1.5 text-slate-600">{row.preset}</td>
+                <td className="px-3 py-1.5 font-medium text-slate-900">{row.label}</td>
+                <td className="px-3 py-1.5 text-slate-600">{row.type}</td>
+                <td className="px-3 py-1.5 text-slate-600">{row.wheelchair || "-"}</td>
+                <td className="px-3 py-1.5 font-mono text-xs text-slate-500">{row.id}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
       {limit < rows.length && (
-        <button
-          type="button"
-          onClick={() => setLimit((n) => n + PAGE)}
-          className="mt-3 rounded border border-slate-300 px-3 py-1 text-sm font-medium hover:bg-slate-100"
-        >
+        <button type="button" onClick={() => setLimit((n) => n + PAGE)} className="btn btn-secondary mt-3">
           Afficher {Math.min(PAGE, rows.length - limit)} objets de plus
         </button>
       )}

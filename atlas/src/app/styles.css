@@ -3,6 +3,36 @@
 :root {
   color-scheme: light;
   --focus: #1d4ed8;
+
+  /* Brand: teal reads as "coast / civic", distinct from the blue focus ring
+     so "this is focused" and "this is the primary action" never collide. */
+  --brand: #0f766e;
+  --brand-dark: #115e59;
+  --brand-tint: #f0fdfa;
+  --brand-border: #99f6e4;
+
+  --ink: #0f172a;
+  --ink-soft: #334155;
+  --muted: #64748b;
+  --line: #e2e8f0;
+  --line-strong: #cbd5e1;
+  --surface: #ffffff;
+  --surface-alt: #f8fafc;
+
+  --danger: #b91c1c;
+  --danger-dark: #7f1d1d;
+  --danger-tint: #fef2f2;
+  --danger-border: #fecaca;
+
+  --warning-tint: #fffbeb;
+  --warning-border: #fcd34d;
+  --warning-text: #92400e;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06), 0 1px 1px rgba(15, 23, 42, 0.04);
+  --shadow-md: 0 8px 24px rgba(15, 23, 42, 0.1), 0 2px 6px rgba(15, 23, 42, 0.06);
 }
 
 /* An explicit ground on html/body. Left transparent, the page borrows whatever
@@ -10,8 +40,10 @@
    unmeasured. */
 html,
 body {
-  background: #ffffff;
-  color: #0f172a;
+  background: var(--surface-alt);
+  color: var(--ink);
+  font-family:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
 /* WCAG 2.2 AA: focus must be visible everywhere, including on map controls. */
@@ -36,9 +68,12 @@ body {
   left: 0.5rem;
   top: -3rem;
   z-index: 50;
-  background: white;
+  background: var(--surface);
+  color: var(--ink);
   padding: 0.5rem 0.75rem;
   border: 2px solid var(--focus);
+  border-radius: var(--radius-sm);
+  font-weight: 600;
   transition: top 0.15s;
 }
 .skip-link:focus {
@@ -47,6 +82,257 @@ body {
 
 .maplibregl-ctrl-attrib {
   font-size: 11px;
+}
+
+/* ---------- Buttons ---------- */
+/* One shared shape so a button always looks like a button; three variants so
+   the hierarchy of an action (do this / do this instead / undo this) is
+   visible before anyone reads the label. */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 0.9rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.1;
+  border: 1px solid transparent;
+  white-space: nowrap;
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease, box-shadow 120ms ease;
+}
+.btn svg {
+  flex: none;
+  width: 1rem;
+  height: 1rem;
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.btn:not(:disabled) {
+  cursor: pointer;
+}
+
+.btn-primary {
+  background: var(--brand);
+  color: #ffffff;
+  box-shadow: var(--shadow-sm);
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--brand-dark);
+}
+
+.btn-secondary {
+  background: var(--surface);
+  color: var(--ink-soft);
+  border-color: var(--line-strong);
+}
+.btn-secondary:hover:not(:disabled) {
+  background: var(--surface-alt);
+  border-color: var(--muted);
+  color: var(--ink);
+}
+
+.btn-danger {
+  background: var(--surface);
+  color: var(--danger);
+  border-color: var(--danger-border);
+}
+.btn-danger:hover:not(:disabled) {
+  background: var(--danger-tint);
+  border-color: var(--danger);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--ink-soft);
+  padding: 0.35rem 0.5rem;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.btn-ghost:hover:not(:disabled) {
+  color: var(--ink);
+  background: var(--surface-alt);
+}
+
+.btn-block {
+  width: 100%;
+}
+.btn-sm {
+  padding: 0.3rem 0.55rem;
+  font-size: 0.72rem;
+}
+
+/* Toggle buttons (mode switches: add-point, rupture, layer panels) get a
+   pressed look that does not depend on colour alone. Unpressed looks like a
+   secondary button; only the pressed rule below needs a per-variant override. */
+.btn-toggle {
+  background: var(--surface);
+  color: var(--ink-soft);
+  border-color: var(--line-strong);
+}
+.btn-toggle:hover:not(:disabled) {
+  background: var(--surface-alt);
+  border-color: var(--muted);
+  color: var(--ink);
+}
+.btn-toggle[aria-pressed="true"] {
+  background: var(--brand);
+  color: #ffffff;
+  box-shadow: inset 0 0 0 2px var(--brand-dark);
+}
+
+/* Rupture reporting is danger-toned even before it is armed, so its urgency
+   reads before anyone presses it. */
+.btn-toggle-danger {
+  background: var(--surface);
+  color: var(--danger-dark);
+  border-color: var(--danger);
+}
+.btn-toggle-danger:hover:not(:disabled) {
+  background: var(--danger-tint);
+}
+.btn-toggle-danger[aria-pressed="true"] {
+  background: var(--danger-dark);
+  color: #ffffff;
+  border-color: var(--danger-dark);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ---------- Cards & panels ---------- */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 0.9rem;
+}
+.card-title {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 0.5rem;
+}
+
+/* ---------- Chips (dimension selectors) ---------- */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  padding: 0.3rem 0.7rem 0.3rem 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+  background: var(--surface);
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+.chip:hover {
+  border-color: var(--muted);
+}
+.chip-active {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: #ffffff;
+}
+.chip-dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 999px;
+  flex: none;
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.25);
+}
+
+/* ---------- Tab bar (Carte / Tableau / Analyse) ---------- */
+.tabbar {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  background: var(--surface-alt);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+}
+.tab {
+  border-radius: calc(var(--radius-md) - 3px);
+  padding: 0.45rem 1rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+.tab:hover {
+  color: var(--ink);
+}
+.tab[aria-selected="true"] {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ---------- Status bar ---------- */
+.statusbar {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  border-top: 1px solid var(--line);
+  background: var(--surface-alt);
+  padding: 0.55rem 1rem;
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+}
+.statusbar-dot {
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 999px;
+  background: var(--brand);
+  flex: none;
+}
+
+/* ---------- Stat tiles (dashboard) ---------- */
+.stat-tile {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--brand);
+  border-radius: var(--radius-md);
+  padding: 0.75rem 0.9rem;
+}
+.stat-tile-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+}
+.stat-tile-value {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+.stat-tile-note {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+/* ---------- Callouts ---------- */
+.callout-warning {
+  background: var(--warning-tint);
+  border: 1px solid var(--warning-border);
+  color: var(--warning-text);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.75rem;
+  font-size: 0.75rem;
+}
+.callout-info {
+  background: var(--brand-tint);
+  border: 1px solid var(--brand-border);
+  color: var(--brand-dark);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.75rem;
+  font-size: 0.75rem;
 }
 
 /* Printing the Analyse tab is the report: drop the chrome, keep the content. */

@@ -1,5 +1,7 @@
 import { DEFAULT_CONFIG } from "../../domain/config.js";
 import { useAppStore } from "../state.js";
+import { RUPTURE_COLOURS } from "../ruptureStyle.js";
+import { IconAlertTriangle } from "./icons.js";
 
 export function RuptureList() {
   const ruptures = useAppStore((s) => s.ruptures);
@@ -9,8 +11,8 @@ export function RuptureList() {
   const toggle = useAppStore((s) => s.toggleAddRuptureMode);
 
   return (
-    <section aria-labelledby="rup-heading">
-      <h2 id="rup-heading" className="mb-2 text-sm font-semibold">
+    <section aria-labelledby="rup-heading" className="card">
+      <h2 id="rup-heading" className="card-title">
         Points de rupture ({ruptures.length})
       </h2>
 
@@ -18,42 +20,48 @@ export function RuptureList() {
         type="button"
         onClick={toggle}
         aria-pressed={addMode}
-        className={`mb-2 w-full rounded px-3 py-2 text-sm font-medium ${
-          addMode ? "bg-red-900 text-white" : "border border-red-900 text-red-900 hover:bg-red-50"
-        }`}
+        className="btn btn-toggle-danger btn-block mb-2"
       >
+        <IconAlertTriangle />
         {addMode ? "Clique sur la carte…" : "Signaler une rupture"}
       </button>
 
       {ruptures.length === 0 && (
-        <p className="text-xs text-slate-600">
+        <p className="rounded-md border border-dashed border-slate-300 p-3 text-center text-xs text-slate-500">
           Une rupture est ce qui coupe un cheminement ou exclut un groupe : marches sans alternative,
           seuil filtrant, trottoir interrompu.
         </p>
       )}
 
-      <ul className="space-y-1">
-        {ruptures.map((rupture) => (
-          <li key={rupture.id}>
-            <button
-              type="button"
-              onClick={() => select(selected === rupture.id ? null : rupture.id)}
-              aria-expanded={selected === rupture.id}
-              className={`block w-full rounded border p-2 text-left ${
-                selected === rupture.id ? "border-slate-900 bg-slate-50" : "border-slate-200"
-              }`}
-            >
-              <span className="block text-sm font-medium">
-                {rupture.comment || "Rupture sans description"}
-              </span>
-              <span className="block text-xs text-slate-600">
-                {/* Spelled out, so the map colour is never the only signal. */}
-                {rupture.blocking ? "Blocage dur" : "Friction"} · gravite {rupture.severity} /{" "}
-                {DEFAULT_CONFIG.scaleMax} · {rupture.dimensions.join(", ") || "aucune dimension"}
-              </span>
-            </button>
-          </li>
-        ))}
+      <ul className="space-y-1.5">
+        {ruptures.map((rupture) => {
+          const isSelected = selected === rupture.id;
+          return (
+            <li key={rupture.id}>
+              <button
+                type="button"
+                onClick={() => select(isSelected ? null : rupture.id)}
+                aria-expanded={isSelected}
+                className="block w-full rounded-md border p-2 pl-2.5 text-left transition-colors"
+                style={{
+                  borderColor: isSelected ? "var(--brand)" : "var(--line)",
+                  background: isSelected ? "var(--brand-tint)" : "var(--surface)",
+                  borderLeftWidth: "3px",
+                  borderLeftColor: rupture.blocking ? RUPTURE_COLOURS.blocking : RUPTURE_COLOURS.friction,
+                }}
+              >
+                <span className="block text-sm font-semibold text-slate-900">
+                  {rupture.comment || "Rupture sans description"}
+                </span>
+                <span className="block text-xs text-slate-600">
+                  {/* Spelled out, so the map colour is never the only signal. */}
+                  {rupture.blocking ? "Blocage dur" : "Friction"} · gravite {rupture.severity} /{" "}
+                  {DEFAULT_CONFIG.scaleMax} · {rupture.dimensions.join(", ") || "aucune dimension"}
+                </span>
+              </button>
+            </li>
+          );
+        })}
       </ul>
     </section>
   );

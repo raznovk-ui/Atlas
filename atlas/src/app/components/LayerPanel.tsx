@@ -8,8 +8,8 @@ export function LayerPanel() {
   const fetchPreset = useAppStore((s) => s.fetchPreset);
 
   return (
-    <fieldset className="border-0 p-0">
-      <legend className="mb-2 text-sm font-semibold text-slate-900">Couches OpenStreetMap</legend>
+    <fieldset className="card border-0">
+      <legend className="card-title">Couches OpenStreetMap</legend>
 
       {OVERPASS_PRESETS.map((preset) => {
         const layer = presets[preset.id]!;

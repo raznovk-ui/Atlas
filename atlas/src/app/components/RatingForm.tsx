@@ -29,22 +29,22 @@ export function RatingForm({ ratings, onChange, idPrefix }: Props) {
   return (
     <div className="space-y-3">
       <fieldset className="border-0 p-0">
-        <legend className="mb-2 text-sm font-semibold">Dimensions evaluees</legend>
-        <div className="flex flex-wrap gap-2">
+        <legend className="mb-2 text-xs font-semibold text-slate-700">Dimensions evaluees</legend>
+        <div className="flex flex-wrap gap-1.5">
           {DIMENSIONS.map((meta) => {
             const active = byDimension.has(meta.key);
             return (
-              <label
-                key={meta.key}
-                className={`cursor-pointer rounded-full border px-3 py-1 text-xs font-medium ${
-                  active ? "border-slate-900 bg-slate-900 text-white" : "border-slate-300 text-slate-700"
-                }`}
-              >
+              <label key={meta.key} className={`chip ${active ? "chip-active" : ""}`}>
                 <input
                   type="checkbox"
                   className="sr-only"
                   checked={active}
                   onChange={() => toggle(meta.key)}
+                />
+                <span
+                  className="chip-dot"
+                  aria-hidden="true"
+                  style={{ background: active ? "#ffffff" : meta.colour }}
                 />
                 {/* The code is spelled out so the choice never rests on colour alone. */}
                 {meta.mjslCode} · {meta.label}
@@ -59,12 +59,16 @@ export function RatingForm({ ratings, onChange, idPrefix }: Props) {
         const sliderId = `${idPrefix}-${rating.dimension}-score`;
         const unrated = rating.score === null;
         return (
-          <div key={rating.dimension} className="rounded border border-slate-200 p-3">
-            <p className="text-sm font-medium">{meta.label}</p>
-            <p className="mb-2 text-xs text-slate-600">{meta.hints}</p>
+          <div
+            key={rating.dimension}
+            className="rounded-md border p-3"
+            style={{ borderColor: "var(--line)", borderLeft: `3px solid ${meta.colour}` }}
+          >
+            <p className="text-sm font-semibold text-slate-900">{meta.label}</p>
+            <p className="mb-2 text-xs text-slate-500">{meta.hints}</p>
 
-            <label htmlFor={sliderId} className="block text-xs font-medium">
-              Note : {unrated ? "non renseignee" : rating.score}
+            <label htmlFor={sliderId} className="block text-xs font-medium text-slate-700">
+              Note : <span className="font-semibold text-slate-900">{unrated ? "non renseignee" : rating.score}</span>
               {!unrated && ` / ${DEFAULT_CONFIG.scaleMax}`}
             </label>
             <input
@@ -78,6 +82,7 @@ export function RatingForm({ ratings, onChange, idPrefix }: Props) {
               // The rubric wording travels with the control for screen readers too.
               aria-describedby={`${sliderId}-help`}
               className="w-full"
+              style={{ accentColor: meta.colour }}
             />
             <p id={`${sliderId}-help`} className="text-xs text-slate-600">
               {unrated
@@ -89,13 +94,13 @@ export function RatingForm({ ratings, onChange, idPrefix }: Props) {
               <button
                 type="button"
                 onClick={() => patch(rating.dimension, { score: null })}
-                className="mt-1 text-xs underline"
+                className="btn btn-ghost btn-sm mt-1 px-0"
               >
                 Remettre a « non renseigne »
               </button>
             )}
 
-            <label className="mt-2 block text-xs font-medium" htmlFor={`${sliderId}-comment`}>
+            <label className="mt-2 block text-xs font-medium text-slate-700" htmlFor={`${sliderId}-comment`}>
               Commentaire
             </label>
             <textarea
@@ -103,7 +108,8 @@ export function RatingForm({ ratings, onChange, idPrefix }: Props) {
               value={rating.comment ?? ""}
               onChange={(e) => patch(rating.dimension, { comment: e.target.value })}
               rows={2}
-              className="w-full rounded border border-slate-300 p-1 text-sm"
+              className="w-full rounded-md border p-1.5 text-sm"
+              style={{ borderColor: "var(--line-strong)" }}
             />
           </div>
         );

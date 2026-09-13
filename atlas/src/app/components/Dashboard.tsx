@@ -3,6 +3,7 @@ import { DEFAULT_CONFIG } from "../../domain/config.js";
 import { DIMENSIONS, dimension as dimensionMeta } from "../../domain/dimensions.js";
 import { useAppStore } from "../state.js";
 import { BarChart, Histogram, StatTile } from "./charts.js";
+import { IconDownload } from "./icons.js";
 import { buildArchive, downloadBlob, downloadText } from "../export/download.js";
 import { observationsCsv, redZonesGeojson, toGeojson } from "../export/project.js";
 
@@ -91,8 +92,8 @@ export function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <section aria-labelledby="synthese">
-        <h2 id="synthese" className="mb-2 text-sm font-semibold">Synthese</h2>
+      <section aria-labelledby="synthese" className="card">
+        <h2 id="synthese" className="card-title">Synthese</h2>
         <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
           <StatTile
             label={`Score moyen (${globalMode === "weakest_link" ? "maillon faible" : "moyenne ponderee"})`}
@@ -112,16 +113,19 @@ export function Dashboard() {
           />
         </div>
         {stats.mean === null && (
-          <p className="mt-2 rounded border border-amber-300 bg-amber-50 p-2 text-xs">
+          <p className="callout-warning mt-2">
             Aucune cellule ne passe le seuil de confiance. Les chiffres ci-dessous restent vides tant que
             les releves ne sont pas dates et corrobores — c&apos;est voulu : un score sans preuve ne vaut rien.
           </p>
         )}
       </section>
 
-      <section aria-labelledby="profil" className="grid gap-6 md:grid-cols-2">
-        <div>
-          <h2 id="profil" className="mb-2 text-sm font-semibold">Profil par dimension</h2>
+      <section aria-labelledby="profil" className="card grid gap-6 md:grid-cols-2">
+        {/* min-w-0: a grid item's implicit min-width is its content's intrinsic
+            width, so the BarChart's fixed-viewBox SVG could otherwise force
+            this column wider than the viewport at 320px. */}
+        <div className="min-w-0">
+          <h2 id="profil" className="card-title">Profil par dimension</h2>
           <BarChart data={stats.perDimension} max={MAX} caption={`Score moyen par dimension (0 a ${MAX})`} />
           {/* Each dimension is counted on its own evidence, so a dimension can
               be documented in cells whose global score is not. */}
@@ -130,20 +134,20 @@ export function Dashboard() {
             Une dimension peut donc etre renseignee la ou le score global ne l&apos;est pas encore.
           </p>
         </div>
-        <div>
-          <h2 className="mb-2 text-sm font-semibold">Distribution des scores</h2>
+        <div className="min-w-0">
+          <h2 className="card-title">Distribution des scores</h2>
           <Histogram bins={stats.bins} caption="Nombre de cellules par tranche de score global" />
         </div>
       </section>
 
-      <section aria-labelledby="zones-table">
-        <h2 id="zones-table" className="mb-2 text-sm font-semibold">Zones rouges classees</h2>
+      <section aria-labelledby="zones-table" className="card">
+        <h2 id="zones-table" className="card-title">Zones rouges classees</h2>
         {redZones.length === 0 ? (
-          <p className="text-xs text-slate-600">Aucune zone rouge retenue.</p>
+          <p className="text-xs text-slate-500">Aucune zone rouge retenue.</p>
         ) : (
           <table className="w-full border-collapse text-left text-xs">
             <thead>
-              <tr className="border-b border-slate-300">
+              <tr className="border-b" style={{ borderColor: "var(--line)" }}>
                 <th scope="col" className="py-1 pr-2">Rang</th>
                 <th scope="col" className="py-1 pr-2">Severite</th>
                 <th scope="col" className="py-1 pr-2">Cellules</th>
@@ -154,7 +158,7 @@ export function Dashboard() {
             </thead>
             <tbody>
               {redZones.map((zone, index) => (
-                <tr key={zone.id} className="border-b border-slate-100">
+                <tr key={zone.id} className="border-b" style={{ borderColor: "var(--line)" }}>
                   <th scope="row" className="py-1 pr-2 font-normal">#{index + 1}</th>
                   <td className="py-1 pr-2">{zone.severityIndex.toFixed(1)}</td>
                   <td className="py-1 pr-2">{zone.areaCells}</td>
@@ -170,16 +174,16 @@ export function Dashboard() {
         )}
       </section>
 
-      <section aria-labelledby="inventaire">
-        <h2 id="inventaire" className="mb-2 text-sm font-semibold">
+      <section aria-labelledby="inventaire" className="card">
+        <h2 id="inventaire" className="card-title">
           Inventaire des ruptures ({ruptures.length})
         </h2>
         {ruptures.length === 0 ? (
-          <p className="text-xs text-slate-600">Aucune rupture signalee.</p>
+          <p className="text-xs text-slate-500">Aucune rupture signalee.</p>
         ) : (
           <table className="w-full border-collapse text-left text-xs">
             <thead>
-              <tr className="border-b border-slate-300">
+              <tr className="border-b" style={{ borderColor: "var(--line)" }}>
                 <th scope="col" className="py-1 pr-2">Description</th>
                 <th scope="col" className="py-1 pr-2">Type</th>
                 <th scope="col" className="py-1 pr-2">Gravite</th>
@@ -189,7 +193,7 @@ export function Dashboard() {
             </thead>
             <tbody>
               {ruptures.map((rupture) => (
-                <tr key={rupture.id} className="border-b border-slate-100">
+                <tr key={rupture.id} className="border-b" style={{ borderColor: "var(--line)" }}>
                   <th scope="row" className="py-1 pr-2 font-normal">{rupture.comment || "—"}</th>
                   <td className="py-1 pr-2">{rupture.blocking ? "Blocage dur" : "Friction"}</td>
                   <td className="py-1 pr-2">{rupture.severity} / {MAX}</td>
@@ -202,21 +206,22 @@ export function Dashboard() {
         )}
       </section>
 
-      <section aria-labelledby="export" className="no-print">
-        <h2 id="export" className="mb-2 text-sm font-semibold">Export</h2>
+      <section aria-labelledby="export" className="card no-print">
+        <h2 id="export" className="card-title">Export</h2>
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
             onClick={() => void exportArchive()}
             disabled={busy}
-            className="rounded bg-slate-900 px-3 py-1 text-sm font-medium text-white disabled:opacity-50"
+            className="btn btn-primary"
           >
+            <IconDownload />
             {busy ? "Preparation..." : "Archive complete (.zip)"}
           </button>
           <button
             type="button"
             onClick={() => downloadText(observationsCsv(observations), "observations.csv", "text/csv")}
-            className="rounded border border-slate-300 px-3 py-1 text-sm"
+            className="btn btn-secondary"
           >
             Observations (.csv)
           </button>
@@ -229,7 +234,7 @@ export function Dashboard() {
                 "application/geo+json",
               )
             }
-            className="rounded border border-slate-300 px-3 py-1 text-sm"
+            className="btn btn-secondary"
           >
             GeoJSON pour QGIS
           </button>
@@ -242,19 +247,15 @@ export function Dashboard() {
                 "application/geo+json",
               )
             }
-            className="rounded border border-slate-300 px-3 py-1 text-sm"
+            className="btn btn-secondary"
           >
             Zones rouges (.geojson)
           </button>
-          <button
-            type="button"
-            onClick={() => window.print()}
-            className="rounded border border-slate-300 px-3 py-1 text-sm"
-          >
+          <button type="button" onClick={() => window.print()} className="btn btn-secondary">
             Imprimer / PDF
           </button>
         </div>
-        <p className="mt-2 text-xs text-slate-600">
+        <p className="mt-2 text-xs text-slate-500">
           Les photos de l&apos;archive sont re-encodees sans metadonnees EXIF : ni lieu, ni heure, ni appareil.
         </p>
       </section>

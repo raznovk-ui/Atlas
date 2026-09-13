@@ -6,8 +6,8 @@ export function BasemapPicker() {
   const setBasemap = useAppStore((s) => s.setBasemap);
 
   return (
-    <fieldset className="border-0 p-0">
-      <legend className="mb-2 text-sm font-semibold text-slate-900">Fond de carte</legend>
+    <fieldset className="card border-0">
+      <legend className="card-title">Fond de carte</legend>
       <div className="space-y-2">
         {BASEMAPS.map((option) => (
           <label key={option.id} className="flex gap-2 text-sm text-slate-700">

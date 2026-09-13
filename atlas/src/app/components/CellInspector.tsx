@@ -1,6 +1,7 @@
 import { DEFAULT_CONFIG } from "../../domain/config.js";
 import { DIMENSIONS } from "../../domain/dimensions.js";
 import { useAppStore } from "../state.js";
+import { IconX } from "./icons.js";
 
 /**
  * Why a cell scored what it scored: the per-dimension figure, what the ruptures
@@ -20,30 +21,29 @@ export function CellInspector() {
 
   return (
     <div className="space-y-3 p-4">
-      <div className="flex items-start justify-between gap-2">
-        <h2 className="text-sm font-semibold">Cellule</h2>
-        <button type="button" onClick={() => select(null)} className="text-xs underline">
+      <div className="flex items-center justify-between gap-2 border-b pb-3" style={{ borderColor: "var(--line)" }}>
+        <h2 className="text-sm font-bold text-slate-900">Cellule</h2>
+        <button type="button" onClick={() => select(null)} className="btn btn-ghost btn-sm">
+          <IconX />
           Fermer
         </button>
       </div>
 
-      <p className="text-xs text-slate-600">
+      <p className="text-xs text-slate-500">
         <span className="font-mono">{cell.cell}</span>
       </p>
 
-      <div className="rounded bg-slate-100 p-2 text-sm">
-        <p>
-          <strong>
-            Score {globalMode === "weakest_link" ? "(maillon faible)" : "(moyenne ponderee)"} :{" "}
-            {cell.global === null ? "non calculable" : `${cell.global.toFixed(2)} / ${max}`}
-          </strong>
+      <div className="rounded-md p-3" style={{ background: "var(--surface-alt)", border: "1px solid var(--line)" }}>
+        <p className="stat-tile-label">Score {globalMode === "weakest_link" ? "(maillon faible)" : "(moyenne ponderee)"}</p>
+        <p className="stat-tile-value">
+          {cell.global === null ? "—" : `${cell.global.toFixed(2)} / ${max}`}
         </p>
-        <p className="text-xs">
+        <p className="mt-1 text-xs" style={{ color: cell.sufficient ? "var(--brand-dark)" : "var(--warning-text)" }}>
           Confiance {cell.confidence.toFixed(2)} —{" "}
           {cell.sufficient ? "suffisante" : "insuffisante, a confirmer sur le terrain"}
         </p>
         {cell.limitingDimension && (
-          <p className="text-xs">Dimension limitante : {cell.limitingDimension}</p>
+          <p className="text-xs text-slate-600">Dimension limitante : {cell.limitingDimension}</p>
         )}
       </div>
 
@@ -67,7 +67,7 @@ export function CellInspector() {
                 <td className="py-1 pr-2">
                   {entry.score === null ? "—" : entry.score.toFixed(2)}
                   {capped && (
-                    <span className="block text-[10px] text-red-800">
+                    <span className="block text-[10px] font-medium" style={{ color: "var(--danger)" }}>
                       ramene de {entry.raw!.toFixed(2)}
                     </span>
                   )}
@@ -95,11 +95,15 @@ export function CellInspector() {
         if (contributions.length === 0) return null;
         return (
           <div>
-            <p className="mb-1 text-xs font-medium">Observations les plus determinantes</p>
-            <ul className="space-y-1 text-xs">
+            <p className="mb-1 text-xs font-semibold text-slate-700">Observations les plus determinantes</p>
+            <ul className="space-y-1">
               {contributions.map((c) => (
-                <li key={`${c.dimension}-${c.observationId}`}>
-                  {c.dimension} · {c.title} — note {c.score}, poids {(c.share * 100).toFixed(0)} %
+                <li
+                  key={`${c.dimension}-${c.observationId}`}
+                  className="rounded-md p-1.5 text-xs"
+                  style={{ background: "var(--surface-alt)" }}
+                >
+                  <strong>{c.dimension}</strong> · {c.title} — note {c.score}, poids {(c.share * 100).toFixed(0)} %
                 </li>
               ))}
             </ul>

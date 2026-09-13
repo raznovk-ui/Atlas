@@ -6,8 +6,8 @@ export function RedZoneList() {
   const cellCount = useAppStore((s) => s.cellCount);
 
   return (
-    <section aria-labelledby="zones-heading">
-      <h2 id="zones-heading" className="mb-2 text-sm font-semibold">
+    <section aria-labelledby="zones-heading" className="card">
+      <h2 id="zones-heading" className="card-title">
         Zones rouges ({zones.length})
       </h2>
 

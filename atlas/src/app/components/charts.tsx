@@ -154,10 +154,10 @@ export function Histogram({
 
 export function StatTile({ label, value, note }: { label: string; value: string; note?: string }) {
   return (
-    <div className="rounded border border-slate-200 p-3">
-      <p className="text-xs text-slate-600">{label}</p>
-      <p className="text-2xl font-bold tabular-nums">{value}</p>
-      {note && <p className="text-xs text-slate-600">{note}</p>}
+    <div className="stat-tile">
+      <p className="stat-tile-label">{label}</p>
+      <p className="stat-tile-value">{value}</p>
+      {note && <p className="stat-tile-note">{note}</p>}
     </div>
   );
 }

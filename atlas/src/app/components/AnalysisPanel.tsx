@@ -17,8 +17,8 @@ export function AnalysisPanel() {
   const ids = useId();
 
   return (
-    <section aria-labelledby="analysis-heading">
-      <h2 id="analysis-heading" className="mb-2 text-sm font-semibold">
+    <section aria-labelledby="analysis-heading" className="card">
+      <h2 id="analysis-heading" className="card-title">
         Analyse ({cellCount} cellules)
       </h2>
 

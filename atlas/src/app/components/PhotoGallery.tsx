@@ -28,7 +28,7 @@ export function PhotoGallery() {
   const fullUrls = useBlobUrls(fullBlobs);
 
   if (photos.length === 0) {
-    return <p className="text-xs text-slate-600">Aucune photo importee.</p>;
+    return <p className="rounded-md border border-dashed border-slate-300 p-3 text-center text-xs text-slate-500">Aucune photo importee.</p>;
   }
 
   const observationFor = (photoId: string) =>
@@ -46,14 +46,14 @@ export function PhotoGallery() {
                 type="button"
                 data-photo-trigger={photo.id}
                 onClick={() => { setOpenId(photo.id); if (observation) select(observation.id); }}
-                className="block w-full"
+                className="group block w-full overflow-hidden rounded-lg border border-slate-200 transition-shadow hover:shadow-md"
               >
                 <img
                   src={thumbUrls.get(photo.id)}
                   alt={`Photo : ${photo.filename}${media?.takenAt ? `, prise le ${media.takenAt.slice(0, 10)}` : ""}`}
-                  className="h-20 w-full rounded border border-slate-200 object-cover"
+                  className="h-20 w-full object-cover transition-transform group-hover:scale-105"
                 />
-                <span className="block truncate text-[10px] text-slate-600">{photo.filename}</span>
+                <span className="block truncate bg-slate-50 px-1.5 py-1 text-left text-[10px] text-slate-600">{photo.filename}</span>
               </button>
             </li>
           );

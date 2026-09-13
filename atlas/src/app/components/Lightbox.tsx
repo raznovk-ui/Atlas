@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { IconX } from "./icons.js";
 
 interface Props {
   src: string;
@@ -31,16 +32,15 @@ export function Lightbox({ src, caption, details, onClose }: Props) {
       className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/80 p-4"
       onClick={onClose}
     >
-      <div className="max-h-full max-w-3xl overflow-auto bg-white p-3" onClick={(e) => e.stopPropagation()}>
-        <img src={src} alt={caption} className="mx-auto max-h-[70vh] w-auto" />
-        <p className="mt-2 text-sm font-medium">{caption}</p>
+      <div
+        className="max-h-full max-w-3xl overflow-auto rounded-lg bg-white p-3 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <img src={src} alt={caption} className="mx-auto max-h-[70vh] w-auto rounded" />
+        <p className="mt-2 text-sm font-semibold text-slate-900">{caption}</p>
         <p className="text-xs text-slate-600">{details}</p>
-        <button
-          ref={closeRef}
-          type="button"
-          onClick={onClose}
-          className="mt-2 rounded border border-slate-300 px-3 py-1 text-sm font-medium"
-        >
+        <button ref={closeRef} type="button" onClick={onClose} className="btn btn-secondary mt-2">
+          <IconX />
           Fermer
         </button>
       </div>
