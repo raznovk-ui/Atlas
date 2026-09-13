@@ -1,5 +1,6 @@
 import { useId, useState } from "react";
 import { parseGeojson, toObservations, type FieldMapping, type ParsedImport } from "../import/parseGeojson.js";
+import { parseCsv } from "../import/parseCsv.js";
 import { MJSL_LAYERS, MJSL_LAYER_NAMES } from "../import/mjslLayers.js";
 import { importMjslProject } from "../../domain/mjsl/import.js";
 import { DEFAULT_CONFIG } from "../../domain/config.js";
@@ -26,7 +27,8 @@ export function ImportWizard() {
   async function onFile(file: File) {
     setError(null);
     try {
-      const result = parseGeojson(await file.text());
+      const text = await file.text();
+      const result = file.name.toLowerCase().endsWith(".csv") ? parseCsv(text) : parseGeojson(text);
       setParsed(result);
       setFileName(file.name);
       // Pre-select the likeliest title column rather than making them hunt.
@@ -172,11 +174,12 @@ export function ImportWizard() {
         <input
           id={`${ids}-file`}
           type="file"
-          accept=".geojson,.json,application/geo+json,application/json"
+          accept=".geojson,.json,.csv,application/geo+json,application/json,text/csv"
           onChange={(e) => { const f = e.target.files?.[0]; if (f) void onFile(f); }}
           className="mt-1 w-full text-sm"
         />
         <p className="mt-1 text-xs text-slate-600">
+          GeoJSON ou CSV (colonnes lat/lon, latitude/longitude, coord_y/coord_x ou y/x).
           KML, GPX et shapefile ne sont pas encore acceptes. Les coordonnees doivent etre en EPSG:4326.
         </p>
       </div>
