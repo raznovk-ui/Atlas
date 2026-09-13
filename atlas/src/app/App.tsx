@@ -14,6 +14,7 @@ import { RuptureEditor } from "./components/RuptureEditor.js";
 import { AnalysisPanel } from "./components/AnalysisPanel.js";
 import { RedZoneList } from "./components/RedZoneList.js";
 import { CellInspector } from "./components/CellInspector.js";
+import { useScoring } from "./analysis/useScoring.js";
 import { Dashboard } from "./components/Dashboard.js";
 import { OVERPASS_PRESETS } from "./overpass/presets.js";
 import { STUDY_AREA } from "./studyArea.js";
@@ -28,6 +29,7 @@ export function App() {
   const loadStoredRuptures = useAppStore((s) => s.loadStoredRuptures);
   const selectedRuptureId = useAppStore((s) => s.selectedRuptureId);
   const selectedCell = useAppStore((s) => s.selectedCell);
+  useScoring();
   const addPointMode = useAppStore((s) => s.addPointMode);
   const toggleAddPointMode = useAppStore((s) => s.toggleAddPointMode);
   const [view, setView] = useState<View>("map");

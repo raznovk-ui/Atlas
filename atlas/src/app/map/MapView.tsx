@@ -9,8 +9,6 @@ import { CLASS_COLOURS, observationClass } from "../observationStyle.js";
 import { RUPTURE_COLOURS } from "../ruptureStyle.js";
 import { cellsToGeojson, redZonesToGeojson } from "../analysis/cells.js";
 import { INSUFFICIENT_FILL, INSUFFICIENT_LINE } from "../analysis/palette.js";
-import { scoreAllCells } from "../../domain/scoring/cell.js";
-import { detectRedZones } from "../../domain/scoring/redzones.js";
 import type { FeatureCollection } from "geojson";
 
 const EMPTY = { type: "FeatureCollection" as const, features: [] };
@@ -37,6 +35,11 @@ export function MapView() {
   const globalMode = useAppStore((s) => s.globalMode);
   const showCells = useAppStore((s) => s.showCells);
   const cellOpacity = useAppStore((s) => s.cellOpacity);
+  // Computed by useScoring() at the app level, not here: the dashboard and the
+  // Analyse tab need these numbers whether or not the map has ever finished
+  // loading, so nothing about deriving them may depend on styleReady.
+  const cellScores = useAppStore((s) => s.cellScores);
+  const redZones = useAppStore((s) => s.redZones);
 
   useEffect(() => {
     if (!container.current || map.current) return;
@@ -126,22 +129,19 @@ export function MapView() {
     if (ruptureSource) ruptureSource.setData(rupturesToGeojson(ruptures));
   }, [observations, ruptures, styleReady]);
 
-  // Scoring is re-run only when its inputs change; at res 10 with a 100 m decay
-  // radius each observation touches a handful of cells, so this stays cheap.
+  // Only pushes already-computed scores into the map's sources; does not
+  // compute them. Scoring itself runs at the app level (useScoring), so the
+  // dashboard and the Analyse tab have real numbers even before the map has
+  // finished loading, or if it never does.
   useEffect(() => {
     const instance = map.current;
     if (!instance || !styleReady) return;
 
     const config = useAppStore.getState().scoringConfig();
-    const cells = scoreAllCells(observations, ruptures, config);
-    const zones = detectRedZones(cells, ruptures, config);
-
     ensureAnalysisLayers(instance);
-    (instance.getSource(CELL_SOURCE) as GeoJSONSource).setData(cellsToGeojson(cells, activeLayer, config));
-    (instance.getSource(REDZONE_SOURCE) as GeoJSONSource).setData(redZonesToGeojson(zones));
-
-    useAppStore.setState({ cellScores: cells, cellCount: cells.length, redZones: zones });
-  }, [observations, ruptures, activeLayer, globalMode, styleReady]);
+    (instance.getSource(CELL_SOURCE) as GeoJSONSource).setData(cellsToGeojson(cellScores, activeLayer, config));
+    (instance.getSource(REDZONE_SOURCE) as GeoJSONSource).setData(redZonesToGeojson(redZones));
+  }, [cellScores, redZones, activeLayer, styleReady]);
 
   useEffect(() => {
     const instance = map.current;
